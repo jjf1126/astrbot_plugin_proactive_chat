@@ -15,7 +15,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/AstrBot-v4.5.0%20Compatible-brightgreen.svg" alt="Compatible with AstrBot v4.5.0">
-  <img src="https://img.shields.io/badge/Release-v0.9.7-brightgreen.svg" alt="Release">
+  <img src="https://img.shields.io/badge/Release-v0.9.8-brightgreen.svg" alt="Release">
   <img src="https://img.shields.io/badge/QQ群-1033089808-12B7F3.svg" alt="QQ Group">
 </p>
 
