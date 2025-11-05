@@ -1,15 +1,14 @@
 # 文件名: main.py (位于 data/plugins/astrbot_plugin_proactive_chat/ 目录下)
-# 版本: 0.9.8 (工程优化版)
+# 版本: 0.9.9 (社区优化版)
 
 # 导入标准库
+import asyncio
+import json
 import random
 import time
 import traceback
-import json
-import os
-from datetime import datetime
 import zoneinfo
-import asyncio
+from datetime import datetime
 
 # v0.9.8 修复 (持久化会话): 导入 aiofiles 及其异步os模块，彻底解决事件循环阻塞问题
 import aiofiles
@@ -20,23 +19,23 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # 导入 AstrBot 的核心 API 和组件
 import astrbot.api.star as star
-from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api import logger
+from astrbot.api.event import AstrMessageEvent, filter
 
-# v0.9.8 修复 (持久化会话): 导入 StarTools 以获取插件专属数据目录，解决持久化失效问题
-from astrbot.api.star import StarTools
+# v0.9.9 优化 (API 适配): 导入官方定义的消息对象，以使用 add_message_pair
+from astrbot.core.agent.message import AssistantMessageSegment, UserMessageSegment
+from astrbot.core.message.components import Plain, Record
 from astrbot.core.message.message_event_result import MessageChain
-from astrbot.core.message.components import Record, Plain
 
 # --- 插件主类 ---
 
 
+# v0.9.9 优化 (框架适应性): 遵循插件开发规范，使用位置参数注册插件
 @star.register(
-    name="astrbot_plugin_proactive_chat",
-    author="DBJD-CR & Gemini-2.5-Pro",
-    version="0.9.8",
-    # v0.9.8 更新: 描述中增加“持久化会话”功能
-    desc="一个让Bot能够发起主动消息的插件，拥有上下文感知、持久化会话、动态情绪、免打扰时段和健壮的TTS集成。",
+    "astrbot_plugin_proactive_chat",
+    "DBJD-CR & Gemini-2.5-Pro",
+    "一个让Bot能够发起主动消息的插件，拥有上下文感知、持久化会话、动态情绪、免打扰时段和健壮的TTS集成。",
+    "0.9.9",
 )
 class Main(star.Star):
     """
@@ -57,7 +56,8 @@ class Main(star.Star):
 
         # v0.9.8 修复 (持久化会话): 使用 StarTools 获取插件专属数据目录，确保数据隔离
         self.data_dir = star.StarTools.get_data_dir("astrbot_plugin_proactive_chat")
-        self.session_data_file = os.path.join(self.data_dir, "session_data.json")
+        # v0.9.9 优化 (代码质量): 使用 pathlib 的 / 操作符拼接路径，更现代化、更具可读性
+        self.session_data_file = self.data_dir / "session_data.json"
 
         # v0.9.8 修复 (持久化会话 / 并发数据竞争): 在 __init__ (同步) 中，只声明变量，不创建任何异步对象
         self.data_lock = None  # 初始化异步锁，用于保护对 session_data 的并发读写
@@ -75,12 +75,16 @@ class Main(star.Star):
         if await aio_os.path.exists(self.session_data_file):
             try:
                 async with aiofiles.open(
-                    self.session_data_file, "r", encoding="utf-8"
+                    self.session_data_file, encoding="utf-8"
                 ) as f:
                     content = await f.read()
-                    self.session_data = json.loads(content)
+                    # v0.9.9 优化 (性能): 将同步的 json.loads 操作放入独立线程，避免阻塞事件循环
+                    loop = asyncio.get_running_loop()
+                    self.session_data = await loop.run_in_executor(
+                        None, json.loads, content
+                    )
             # v0.9.8 修复 (精细化异常捕获): 捕获更具体的异常，提高代码健壮性
-            except (json.JSONDecodeError, IOError) as e:
+            except (OSError, json.JSONDecodeError) as e:
                 logger.error(f"[主动消息] 加载会话数据失败: {e}，将使用空数据启动。")
                 self.session_data = {}
         else:
@@ -98,10 +102,14 @@ class Main(star.Star):
                 self.session_data_file, "w", encoding="utf-8"
             ) as f:
                 # 使用 indent=4 和 ensure_ascii=False 来保证 JSON 文件的可读性 (v0.9.7 继承)
-                await f.write(
-                    json.dumps(self.session_data, indent=4, ensure_ascii=False)
+                # v0.9.9 优化 (性能): 将同步的 json.dumps 操作放入独立线程
+                loop = asyncio.get_running_loop()
+                content_to_write = await loop.run_in_executor(
+                    None,
+                    lambda: json.dumps(self.session_data, indent=4, ensure_ascii=False),
                 )
-        except IOError as e:
+                await f.write(content_to_write)
+        except OSError as e:
             logger.error(f"[主动消息] 保存会话数据失败: {e}")
 
     async def initialize(self):
@@ -120,8 +128,8 @@ class Main(star.Star):
         try:
             # 从 AstrBot 主配置中获取时区设置 (v0.9.7 继承)
             self.timezone = zoneinfo.ZoneInfo(self.context.get_config().get("timezone"))
-        # v0.9.8 修复 (精细化异常捕获): 捕获可能发生的多种异常
-        except (zoneinfo.ZoneInfoNotFoundError, TypeError, KeyError):
+        # v0.9.9 修复 (Issue #5): 新增 ValueError 捕获，处理用户未配置或配置了无效时区格式的情况
+        except (zoneinfo.ZoneInfoNotFoundError, TypeError, KeyError, ValueError):
             self.timezone = None
 
         # 创建一个独立的、属于本插件的异步调度器实例 (v0.9.7 继承)
@@ -308,7 +316,11 @@ class Main(star.Star):
                 if conversation:
                     if conversation.history and isinstance(conversation.history, str):
                         try:
-                            pure_history_messages = json.loads(conversation.history)
+                            # v0.9.9 优化 (性能): 将同步的 json.loads 操作放入独立线程
+                            loop = asyncio.get_running_loop()
+                            pure_history_messages = await loop.run_in_executor(
+                                None, json.loads, conversation.history
+                            )
                             # 新增日志: 打印加载到的上下文条数 (issue#2)
                             logger.info(
                                 f"[主动消息] 成功加载上下文: 共 {len(pure_history_messages)} 条历史消息。"
@@ -401,30 +413,30 @@ class Main(star.Star):
                     )
 
                 # --- 核心: 解决记忆黑洞 ---
+                # v0.9.9 优化 (API 适配): 使用官方提供的 add_message_pair API，代码更简洁、更健壮
                 try:
-                    # v0.9.8 修复 (上下文感知): 确保即使 conv_id 是新建的，也能存档 (issue#2)
                     if conv_id:
-                        user_record = {
-                            "role": "user",
-                            "content": final_user_simulation_prompt,
-                        }
-                        assistant_record = {
-                            "role": "assistant",
-                            "content": response_text,
-                        }
-                        pure_history_messages.extend([user_record, assistant_record])
-                        await self.context.conversation_manager.update_conversation(
-                            session_id,
-                            conversation_id=conv_id,
-                            history=pure_history_messages,
+                        # 1. 创建官方定义的消息对象
+                        user_msg_obj = UserMessageSegment(
+                            content=final_user_simulation_prompt
                         )
-                        logger.info("[主动消息] 已成功将本次主动对话存档至对话历史。")
-                    else:
-                        logger.error(
-                            "[主动消息] 致命错误：在尝试存档时，conv_id 依然为空！"
+                        assistant_msg_obj = AssistantMessageSegment(
+                            content=response_text
+                        )
+
+                        # 2. 调用全新的“官方套装”
+                        await self.context.conversation_manager.add_message_pair(
+                            cid=conv_id,
+                            user_message=user_msg_obj,
+                            assistant_message=assistant_msg_obj,
+                        )
+                        logger.info(
+                            "[主动消息] 已成功将本次主动对话存档至对话历史 (使用 add_message_pair)。"
                         )
                 except Exception as e:
-                    logger.error(f"[主动消息] 手动存档对话历史失败: {e}")
+                    logger.error(
+                        f"[主动消息] 使用 add_message_pair 存档对话历史失败: {e}"
+                    )
 
                 # 任务成功，更新计数器，并安排下一次任务
                 self.session_data.setdefault(session_id, {})["unanswered_count"] = (
