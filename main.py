@@ -1,5 +1,5 @@
 # 文件名: main.py (位于 data/plugins/astrbot_plugin_proactive_chat/ 目录下)
-# 版本: 1.0.0-beta.2 (基于AstrBot新文档优化版)
+# 版本: 1.0.0-beta.3 (Hot Fix for v1.0.0-beta.2)
 
 # 导入标准库
 import asyncio
@@ -1141,12 +1141,16 @@ class ProactiveChatPlugin(star.Star):
                     )
                     return
 
-                # 检查2: 验证会话数据是否存在且合理
+                # v1.0.0-beta.3 修复：
+                # 检查2: 验证会话数据是否存在，如果不存在则创建初始数据
                 if session_id not in self.session_data:
-                    logger.warning(
-                        f"[主动消息] 群聊 {session_id} 的会话数据不存在，跳过主动消息创建喵。"
+                    logger.info(
+                        f"[主动消息] 群聊 {session_id} 的会话数据不存在，创建初始会话数据喵。"
                     )
-                    return
+                    # 为新会话创建初始数据
+                    self.session_data[session_id] = {
+                        "unanswered_count": 0
+                    }
 
                 # 检查3: 验证配置是否仍然启用
                 current_config = self._get_session_config(session_id)
