@@ -16,7 +16,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/AstrBot-v4.5.8%20Compatible-brightgreen.svg" alt="Compatible with AstrBot v4.5.8">
-  <img src="https://img.shields.io/badge/Release-v1.0.0 beta.2-brightgreen.svg" alt="Release">
+  <img src="https://img.shields.io/badge/Release-v1.0.0 beta.3-brightgreen.svg" alt="Release">
   <img src="https://img.shields.io/badge/QQ群-1033089808-12B7F3.svg" alt="QQ Group">
 </p>
 
@@ -513,7 +513,8 @@ graph TD
 
 | 版本 | 状态 | 重要说明 | 推荐的 AstrBot 版本 |
 |------|------|----------|------------------|
-| **v1.0.0-beta.2** | ✅ 当前版本 | 新增自动主动消息功能，优化代码质量 | v4.5.7+ |
+| **v1.0.0-beta.3** | ✅ 当前版本 | **Hot Fix**: 修复新会话无法创建主动消息的问题 | v4.5.7+ |
+| **v1.0.0-beta.2** | ⚠️ 存在问题 | 新增自动主动消息功能，但存在新会话初始化问题 | v4.5.7+ |
 | **v1.0.0-beta.1** | ⚠️ 需重新配置 | 大幅重构配置格式，**无法继承旧配置** | v4.5.7+ |
 | **v0.9.97** | ✅ 稳定版本 | 单私聊版最后一个稳定版本 | v4.5.2+ |
 | **v0.9.9+** | ⚠️ 注意兼容 | 确保 AstrBot 版本 ≥ v4.5.2，否则无法导入 | v4.5.2+ |
