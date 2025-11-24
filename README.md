@@ -16,7 +16,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/AstrBot-v4.5.8%20Compatible-brightgreen.svg" alt="Compatible with AstrBot v4.5.8">
-  <img src="https://img.shields.io/badge/Release-v1.0.0 beta.3-brightgreen.svg" alt="Release">
+  <img src="https://img.shields.io/badge/Release-v1.0.0 beta.4-brightgreen.svg" alt="Release">
   <img src="https://img.shields.io/badge/QQ群-1033089808-12B7F3.svg" alt="QQ Group">
 </p>
 
@@ -102,9 +102,9 @@
 > [!TIP]
 > 本项目的相关开发数据 (持续更新中)：
 >
-> 开发时长：累计 18 天（主插件部分）
+> 开发时长：累计 20 天（主插件部分）
 >
-> 累计工时：约 152 小时（主插件部分）
+> 累计工时：约 157 小时（主插件部分）
 >
 > 创建本仓库：累计 3 天，约 22 小时
 >
@@ -116,7 +116,7 @@
 >
 > Temperature：0 或 0.6
 >
-> Tokens Used：256,114,108
+> Tokens Used：262,672,275
 
 ## 🌟 功能特色
 
@@ -513,7 +513,8 @@ graph TD
 
 | 版本 | 状态 | 重要说明 | 推荐的 AstrBot 版本 |
 |------|------|----------|------------------|
-| **v1.0.0-beta.3** | ✅ 当前版本 | **Hot Fix**: 修复新会话无法创建主动消息的问题 | v4.5.7+ |
+| **v1.0.0-beta.4** | ✅ 当前版本 | **稳定性修复**: 修复潜在的多并发场景下的竞态条件问题，优化日志过滤 | v4.5.7+ |
+| **v1.0.0-beta.3** | ✅ 基本稳定 | **Hot Fix**: 修复新会话无法创建主动消息的问题 | v4.5.7+ |
 | **v1.0.0-beta.2** | ⚠️ 存在问题 | 新增自动主动消息功能，但存在新会话初始化问题 | v4.5.7+ |
 | **v1.0.0-beta.1** | ⚠️ 需重新配置 | 大幅重构配置格式，**无法继承旧配置** | v4.5.7+ |
 | **v0.9.97** | ✅ 稳定版本 | 单私聊版最后一个稳定版本 | v4.5.2+ |
