@@ -1,5 +1,5 @@
 # 文件名: main.py (位于 data/plugins/astrbot_plugin_proactive_chat/ 目录下)
-# 版本: 1.0.0-beta.3 (Hot Fix for v1.0.0-beta.2)
+# 版本: 1.0.0-beta.4 (Stability Fix for v1.0.0-beta.3)
 
 # 导入标准库
 import asyncio
@@ -73,11 +73,9 @@ class ProactiveChatPlugin(star.Star):
         # 用于辅助在Bot发送消息时正确重置监听器的倒计时
         self.last_bot_message_time = 0
 
-        # v1.0.0-beta.1 修复: 用于时间窗口检测的用户消息时间戳
-        # 记录最后一次用户消息的时间和会话ID，用于5秒时间窗口检测
-        # 当Bot在5秒内回复用户消息时，可以准确识别为Bot消息
-        self.last_user_message_time = 0
-        self.user_message_session_id = None
+        # v1.0.0-beta.4 修复: 使用会话隔离的状态管理，避免竞态条件
+        # 将全局状态改为以session_id为键的字典，确保每个群聊会话状态独立
+        self.session_temp_state: dict[str, dict] = {}  # 存储每个会话的临时状态
 
         # v1.0.0-beta.1 架构重构: 不再在初始化时缓存配置，改为按需、按会话获取
 
@@ -392,7 +390,7 @@ class ProactiveChatPlugin(star.Star):
                         )
 
                         logger.info(
-                            f"[主动消息] 自动触发任务已创建喵: {session_id}, 执行时间: {run_date.strftime('%Y-%m-%d %H:%M:%S')} 喵"
+                            f"[主动消息] 自动触发任务已创建喵: {session_id}, 执行时间 (非持久化): {run_date.strftime('%Y-%m-%d %H:%M:%S')} 喵"
                         )
 
                     except Exception as e:
@@ -569,7 +567,9 @@ class ProactiveChatPlugin(star.Star):
                             trigger_time_with_grace = next_trigger + 60
                             is_not_expired = current_time < trigger_time_with_grace
 
-                            logger.debug(f"[主动消息] 检查群聊持久化任务喵: {session_id}")
+                            logger.debug(
+                                f"[主动消息] 检查群聊持久化任务喵: {session_id}"
+                            )
                             logger.debug(
                                 f"[主动消息] 触发时间: {next_trigger} 喵, 当前时间: {current_time} 喵"
                             )
@@ -879,12 +879,14 @@ class ProactiveChatPlugin(star.Star):
                 f"[主动消息] 尝试取消FriendMessage格式触发器时出错喵（可忽略）: {e}"
             )
 
-        # 只打印一次日志，避免刷屏
-        if session_id not in self.first_message_logged:
-            self.first_message_logged.add(session_id)
-            logger.info(
-                f"[主动消息] 已记录私聊消息时间并取消自动触发喵，会话ID: {session_id}"
-            )
+        # 只打印一次日志，避免刷屏，且只针对配置的会话
+        session_config = self._get_session_config(session_id)
+        if session_config and session_config.get("enable", False):
+            if session_id not in self.first_message_logged:
+                self.first_message_logged.add(session_id)
+                logger.info(
+                    f"[主动消息] 已记录私聊消息时间并取消自动触发喵，会话ID: {session_id}"
+                )
         # 后续消息不再打印日志，保持简洁
 
         session_config = self._get_session_config(session_id)
@@ -915,10 +917,9 @@ class ProactiveChatPlugin(star.Star):
 
         session_id = event.unified_msg_origin
 
-        # v1.0.0-beta.1 新增: 记录用户消息时间戳，用于时间窗口检测Bot消息
+        # v1.0.0-beta.4 修复: 使用会话隔离的状态管理，避免竞态条件
         current_time = time.time()
-        self.last_user_message_time = current_time
-        self.user_message_session_id = session_id
+        self.session_temp_state[session_id] = {"last_user_time": current_time}
         logger.debug(
             f"[主动消息] 记录用户消息时间戳喵: {current_time}, 会话ID: {session_id}"
         )
@@ -945,12 +946,14 @@ class ProactiveChatPlugin(star.Star):
                 f"[主动消息] 尝试取消GroupMessage格式触发器时出错喵（可忽略）: {e}"
             )
 
-        # 只打印一次日志，避免刷屏
-        if session_id not in self.first_message_logged:
-            self.first_message_logged.add(session_id)
-            logger.info(
-                f"[主动消息] 已记录群聊消息时间并取消自动触发喵，会话ID: {session_id}"
-            )
+        # 只打印一次日志，避免刷屏，且只针对配置的会话
+        session_config = self._get_session_config(session_id)
+        if session_config and session_config.get("enable", False):
+            if session_id not in self.first_message_logged:
+                self.first_message_logged.add(session_id)
+                logger.info(
+                    f"[主动消息] 已记录群聊消息时间并取消自动触发喵，会话ID: {session_id}"
+                )
         # 后续消息不再打印日志，保持简洁
 
         # v1.0.0-beta.1 注释: Bot消息检测已迁移到after_message_sent事件
@@ -1052,12 +1055,12 @@ class ProactiveChatPlugin(star.Star):
         current_time = time.time()
 
         try:
-            # 核心检测逻辑1: 时间窗口检测（最可靠）
-            time_since_user = current_time - self.last_user_message_time
+            # 核心检测逻辑1: 时间窗口检测（最可靠）- v1.0.0-beta.4修复：使用会话隔离状态
+            session_state = self.session_temp_state.get(session_id, {})
+            last_user_time = session_state.get("last_user_time", 0)
+            time_since_user = current_time - last_user_time
             if (
-                self.last_user_message_time > 0
-                and time_since_user < 5.0  # 5秒时间窗口
-                and self.user_message_session_id == session_id
+                last_user_time > 0 and time_since_user < 5.0  # 5秒时间窗口
             ):
                 is_bot_message = True
                 logger.debug(
@@ -1084,9 +1087,9 @@ class ProactiveChatPlugin(star.Star):
             if is_bot_message:
                 # 重置沉默倒计时
                 await self._reset_group_silence_timer(session_id)
-                # 清理时间窗口标记
-                self.last_user_message_time = 0
-                self.user_message_session_id = None
+                # 清理会话状态 - v1.0.0-beta.4修复：使用会话隔离状态管理
+                if session_id in self.session_temp_state:
+                    del self.session_temp_state[session_id]
             else:
                 logger.debug(f"[主动消息] 未检测到Bot消息喵，会话ID: {session_id}")
 
@@ -1148,9 +1151,7 @@ class ProactiveChatPlugin(star.Star):
                         f"[主动消息] 群聊 {session_id} 的会话数据不存在，创建初始会话数据喵。"
                     )
                     # 为新会话创建初始数据
-                    self.session_data[session_id] = {
-                        "unanswered_count": 0
-                    }
+                    self.session_data[session_id] = {"unanswered_count": 0}
 
                 # 检查3: 验证配置是否仍然启用
                 current_config = self._get_session_config(session_id)
@@ -1282,7 +1283,9 @@ class ProactiveChatPlugin(star.Star):
                     logger.info("[主动消息] 使用默认人格设定喵")
 
             if not original_system_prompt:
-                logger.error("[主动消息] 呜喵？！关键错误喵：无法加载任何人格设定，放弃喵。")
+                logger.error(
+                    "[主动消息] 呜喵？！关键错误喵：无法加载任何人格设定，放弃喵。"
+                )
                 return None
 
             logger.info(
@@ -1557,7 +1560,9 @@ class ProactiveChatPlugin(star.Star):
                     logger.info(
                         f"[主动消息] 回退错误类型喵: {type(fallback_error).__name__}"
                     )
-                    logger.error("[主动消息] 呜喵？！LLM调用完全失败，将重新调度任务喵。")
+                    logger.error(
+                        "[主动消息] 呜喵？！LLM调用完全失败，将重新调度任务喵。"
+                    )
                     await self._schedule_next_chat_and_save(session_id)
                     return
 
