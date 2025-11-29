@@ -1482,6 +1482,19 @@ class ProactiveChatPlugin(star.Star):
             pure_history_messages = request_package["history"]
             original_system_prompt = request_package["system_prompt"]
 
+            # v1.0.0-beta.6 修复 (并发竞态条件): 记录任务开始时的状态快照
+            # 用于检测LLM调用期间是否有新消息到达
+            task_start_state = {
+                "last_message_time": self.last_message_times.get(session_id, 0),
+                "unanswered_count": unanswered_count,
+                "timestamp": time.time(),
+            }
+            logger.debug(
+                f"[主动消息] 任务开始状态快照 - 会话: {session_id}, "
+                f"最后消息时间: {task_start_state['last_message_time']}, "
+                f"未回复计数: {task_start_state['unanswered_count']}"
+            )
+
             # v4.5.7+ 优化: 使用新的统一LLM调用接口
             # 基于最新文档的推荐方式，简化API调用逻辑
 
@@ -1548,6 +1561,35 @@ class ProactiveChatPlugin(star.Star):
             if llm_response_obj and llm_response_obj.completion_text:
                 response_text = llm_response_obj.completion_text.strip()
                 logger.info(f"[主动消息] LLM 已生成文本喵: '{response_text}'。")
+
+                # v1.0.0-beta.6 修复 (并发竞态条件): 在发送消息前检查状态一致性
+                # 如果在LLM调用期间用户发送了新消息，则丢弃本次生成结果
+                current_state = {
+                    "last_message_time": self.last_message_times.get(session_id, 0),
+                    "unanswered_count": self.session_data.get(session_id, {}).get(
+                        "unanswered_count", 0
+                    ),
+                }
+
+                # 检查是否有新消息到达（比较时间戳和计数器）
+                has_new_message = (
+                    current_state["last_message_time"]
+                    > task_start_state["last_message_time"]
+                    or current_state["unanswered_count"]
+                    < task_start_state["unanswered_count"]
+                )
+
+                if has_new_message:
+                    logger.info(
+                        f"[主动消息] 检测到用户在LLM生成期间发送了新消息，丢弃本次主动消息喵。 "
+                        f"任务开始时最后消息时间: {task_start_state['last_message_time']}, "
+                        f"当前最后消息时间: {current_state['last_message_time']}, "
+                        f"任务开始时未回复计数: {task_start_state['unanswered_count']}, "
+                        f"当前未回复计数: {current_state['unanswered_count']}"
+                    )
+                    # 不重新调度任务，因为用户消息已经触发了新的任务创建
+                    # on_private_message 已经处理了任务重新调度
+                    return
 
                 await self._send_proactive_message(session_id, response_text)
 
