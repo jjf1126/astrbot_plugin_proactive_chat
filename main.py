@@ -1,5 +1,5 @@
 # 文件名: main.py (位于 data/plugins/astrbot_plugin_proactive_chat/ 目录下)
-# 版本: 1.0.0-beta.4 (Stability Fix for v1.0.0-beta.3)
+# 版本: 1.0.0-beta.6 (代码质量优化版)
 
 # 导入标准库
 import asyncio
@@ -479,145 +479,16 @@ class ProactiveChatPlugin(star.Star):
         # 检查私聊配置
         private_settings = self.config.get("private_settings", {})
         if private_settings.get("enable", False):
-            auto_trigger_settings = private_settings.get("auto_trigger_settings", {})
-            if auto_trigger_settings.get("enable_auto_trigger", False):
-                target_user_id = str(private_settings.get("target_user_id", "")).strip()
-                if target_user_id:
-                    # 检查是否已经有持久化的主动消息任务
-                    # 只检查FriendMessage格式的会话ID：default:FriendMessage:用户ID
-                    # 重要：只认为未过期的任务才是"有效任务"
-                    has_existing_task = False
-                    current_time = time.time()
-                    for session_id, session_info in self.session_data.items():
-                        if (
-                            session_info.get("next_trigger_time")
-                            and f"FriendMessage:{target_user_id}" in session_id
-                        ):
-                            next_trigger = session_info.get("next_trigger_time")
-                            # 检查任务是否过期（给1分钟宽限期，与恢复逻辑保持一致）
-                            trigger_time_with_grace = next_trigger + 60
-                            is_not_expired = current_time < trigger_time_with_grace
-
-                            logger.debug(f"[主动消息] 检查私聊持久化任务: {session_id}")
-                            logger.debug(
-                                f"[主动消息] 触发时间: {next_trigger}, 当前时间: {current_time}"
-                            )
-                            logger.debug(f"[主动消息] 是否未过期: {is_not_expired}")
-
-                            if is_not_expired:
-                                logger.debug(
-                                    f"[主动消息] 找到有效的私聊持久化任务: {session_id}"
-                                )
-                                has_existing_task = True
-                                break
-                            else:
-                                logger.debug(
-                                    f"[主动消息] 私聊任务已过期，不视为有效任务: {session_id}"
-                                )
-
-                    if has_existing_task:
-                        logger.info(
-                            f"[主动消息] 私聊会话 {target_user_id} 已存在持久化的主动消息任务，"
-                            f"跳过自动触发器设置以避免冲突喵。"
-                        )
-                    else:
-                        # 使用FriendMessage格式的会话ID，但需要先确定平台名称
-                        # 从已有的会话数据中提取平台名称，如果没有则使用默认的"default"
-                        platform_name = "default"
-                        for existing_session_id in self.session_data.keys():
-                            if f"FriendMessage:{target_user_id}" in existing_session_id:
-                                # 提取平台名称（第一部分）
-                                platform_name = existing_session_id.split(":")[0]
-                                break
-
-                        friend_session_id = (
-                            f"{platform_name}:FriendMessage:{target_user_id}"
-                        )
-                        await self._setup_auto_trigger(friend_session_id)
-                        auto_trigger_count += 1
-                        logger.info(
-                            f"[主动消息] 已为私聊会话 {target_user_id} 设置自动触发器喵。"
-                        )
-                else:
-                    logger.warning(
-                        "[主动消息] 私聊启用了自动触发但未配置目标用户ID喵。"
-                    )
-            else:
-                logger.info("[主动消息] 私聊未启用自动主动消息功能喵。")
+            auto_trigger_count += await self._setup_auto_trigger_for_session_type(
+                private_settings, "FriendMessage", "target_user_id"
+            )
 
         # 检查群聊配置
         group_settings = self.config.get("group_settings", {})
         if group_settings.get("enable", False):
-            auto_trigger_settings = group_settings.get("auto_trigger_settings", {})
-            if auto_trigger_settings.get("enable_auto_trigger", False):
-                target_group_id = str(group_settings.get("target_group_id", "")).strip()
-                if target_group_id:
-                    # 检查是否已经有持久化的主动消息任务
-                    # 只检查GroupMessage格式的会话ID
-                    # 重要：只认为未过期的任务才是"有效任务"
-                    has_existing_task = False
-                    current_time = time.time()
-                    for session_id, session_info in self.session_data.items():
-                        if (
-                            session_info.get("next_trigger_time")
-                            and f"GroupMessage:{target_group_id}" in session_id
-                        ):
-                            next_trigger = session_info.get("next_trigger_time")
-                            # 检查任务是否过期（给1分钟宽限期，与恢复逻辑保持一致）
-                            trigger_time_with_grace = next_trigger + 60
-                            is_not_expired = current_time < trigger_time_with_grace
-
-                            logger.debug(
-                                f"[主动消息] 检查群聊持久化任务喵: {session_id}"
-                            )
-                            logger.debug(
-                                f"[主动消息] 触发时间: {next_trigger} 喵, 当前时间: {current_time} 喵"
-                            )
-                            logger.debug(f"[主动消息] 是否未过期喵: {is_not_expired}")
-
-                            if is_not_expired:
-                                logger.debug(
-                                    f"[主动消息] 找到有效的群聊持久化任务喵: {session_id}"
-                                )
-                                has_existing_task = True
-                                break
-                            else:
-                                logger.debug(
-                                    f"[主动消息] 群聊任务已过期，不视为有效任务喵: {session_id}"
-                                )
-
-                    if has_existing_task:
-                        logger.info(
-                            f"[主动消息] 群聊会话 {target_group_id} 已存在持久化的主动消息任务，"
-                            f"跳过自动触发器设置以避免冲突喵。"
-                        )
-                    else:
-                        # 使用GroupMessage格式的会话ID，但需要先确定平台名称
-                        # 从已有的会话数据中提取平台名称，如果没有则使用默认的"default"
-                        platform_name = "default"
-                        for existing_session_id in self.session_data.keys():
-                            if f"GroupMessage:{target_group_id}" in existing_session_id:
-                                # 提取平台名称（第一部分）
-                                platform_name = existing_session_id.split(":")[0]
-                                break
-
-                        group_session_id = (
-                            f"{platform_name}:GroupMessage:{target_group_id}"
-                        )
-                        logger.debug(
-                            f"[主动消息] 为群聊设置自动触发器喵: {group_session_id}"
-                        )
-                        await self._setup_auto_trigger(group_session_id)
-                        auto_trigger_count += 1
-                        logger.info(
-                            f"[主动消息] 已为群聊会话 {target_group_id} 设置自动触发器喵。"
-                        )
-                else:
-                    logger.warning(
-                        "[主动消息] 群聊启用了自动触发但未配置目标群聊ID喵。"
-                    )
-            else:
-                logger.info("[主动消息] 群聊未启用自动主动消息功能喵。")
+            auto_trigger_count += await self._setup_auto_trigger_for_session_type(
+                group_settings, "GroupMessage", "target_group_id"
+            )
         else:
             logger.debug("[主动消息] 群聊主动消息功能未启用喵。")
 
@@ -627,6 +498,95 @@ class ProactiveChatPlugin(star.Star):
             logger.info(
                 f"[主动消息] 已为 {auto_trigger_count} 个会话设置自动主动消息触发器喵。"
             )
+
+    # v1.0.0-beta.6 优化 (代码结构): 提取公共逻辑，减少代码重复
+    # 原函数 _setup_auto_triggers_for_enabled_sessions 中私聊和群聊逻辑几乎完全相同
+    # 新函数参数化消息类型和目标ID，消除重复代码，提高可维护性
+    async def _setup_auto_trigger_for_session_type(
+        self, settings: dict, message_type: str, target_id_key: str
+    ) -> int:
+        """
+        为指定类型的会话设置自动触发器。
+
+        参数：
+        - settings: 配置设置（私聊或群聊）
+        - message_type: 消息类型（FriendMessage 或 GroupMessage）
+        - target_id_key: 目标ID的键名（target_user_id 或 target_group_id）
+
+        返回：设置的触发器数量
+        """
+        # 为了日志可读性，转换消息类型为中文描述
+        type_description = "私聊" if message_type == "FriendMessage" else "群聊"
+
+        auto_trigger_settings = settings.get("auto_trigger_settings", {})
+        if not auto_trigger_settings.get("enable_auto_trigger", False):
+            logger.info(f"[主动消息] {type_description}未启用自动主动消息功能喵。")
+            return 0
+
+        target_id = str(settings.get(target_id_key, "")).strip()
+        if not target_id:
+            id_description = "用户ID" if target_id_key == "target_user_id" else "群聊ID"
+            logger.warning(
+                f"[主动消息] {type_description}启用了自动触发但未配置目标{id_description}喵。"
+            )
+            return 0
+
+        # 检查是否已经有持久化的主动消息任务
+        # 重要：只认为未过期的任务才是"有效任务"
+        has_existing_task = False
+        current_time = time.time()
+        for session_id, session_info in self.session_data.items():
+            if (
+                session_info.get("next_trigger_time")
+                and f"{message_type}:{target_id}" in session_id
+            ):
+                next_trigger = session_info.get("next_trigger_time")
+                # 检查任务是否过期（给1分钟宽限期，与恢复逻辑保持一致）
+                trigger_time_with_grace = next_trigger + 60
+                is_not_expired = current_time < trigger_time_with_grace
+
+                logger.debug(
+                    f"[主动消息] 检查{type_description}持久化任务: {session_id}"
+                )
+                logger.debug(
+                    f"[主动消息] 触发时间: {next_trigger}, 当前时间: {current_time}"
+                )
+                logger.debug(f"[主动消息] 是否未过期: {is_not_expired}")
+
+                if is_not_expired:
+                    logger.debug(
+                        f"[主动消息] 找到有效的{type_description}持久化任务: {session_id}"
+                    )
+                    has_existing_task = True
+                    break
+                else:
+                    logger.debug(
+                        f"[主动消息] {type_description}任务已过期，不视为有效任务: {session_id}"
+                    )
+
+        if has_existing_task:
+            logger.info(
+                f"[主动消息] {type_description}会话 {target_id} 已存在持久化的主动消息任务，"
+                f"跳过自动触发器设置以避免冲突喵。"
+            )
+            return 0
+
+        # 使用指定格式的会话ID，但需要先确定平台名称
+        # 从已有的会话数据中提取平台名称，如果没有则使用默认的"default"
+        platform_name = "default"
+        for existing_session_id in self.session_data.keys():
+            if f"{message_type}:{target_id}" in existing_session_id:
+                # 提取平台名称（第一部分）
+                platform_name = existing_session_id.split(":")[0]
+                break
+
+        session_id = f"{platform_name}:{message_type}:{target_id}"
+        logger.debug(f"[主动消息] 为{type_description}设置自动触发器喵: {session_id}")
+        await self._setup_auto_trigger(session_id)
+        logger.info(
+            f"[主动消息] 已为{type_description}会话 {target_id} 设置自动触发器喵。"
+        )
+        return 1
 
     # --- v1.0.0-beta.1 架构重构: 配置获取 ---
 
@@ -643,18 +603,23 @@ class ProactiveChatPlugin(star.Star):
         返回值：配置字典（如果找到且启用）或None（如果未找到或禁用）
         这个函数确保了插件只会对配置中指定的目标会话生效。
         """
-        if "group" in umo.lower():
-            group_conf = self.config.get("group_settings", {})
-            target_group_id = str(group_conf.get("target_group_id", "")).strip()
-            # 确保 umo 属于目标群聊
-            if target_group_id and f":{target_group_id}" in umo:
-                return group_conf
-        else:
-            private_conf = self.config.get("private_settings", {})
-            target_user_id = str(private_conf.get("target_user_id", "")).strip()
-            # 确保 umo 属于目标私聊
-            if target_user_id and f":{target_user_id}" in umo:
-                return private_conf
+        # v1.0.0-beta.6 修复 (逻辑正确性): 精确解析umo字符串格式，避免误判
+        parts = umo.split(":")
+        if len(parts) >= 3:
+            message_type = parts[1]  # 第二部分是消息类型
+
+            if message_type == "GroupMessage":
+                group_conf = self.config.get("group_settings", {})
+                target_group_id = str(group_conf.get("target_group_id", "")).strip()
+                # 确保 umo 属于目标群聊
+                if target_group_id and f":{target_group_id}" in umo:
+                    return group_conf
+            elif message_type == "FriendMessage":
+                private_conf = self.config.get("private_settings", {})
+                target_user_id = str(private_conf.get("target_user_id", "")).strip()
+                # 确保 umo 属于目标私聊
+                if target_user_id and f":{target_user_id}" in umo:
+                    return private_conf
         return None
 
     # --- 核心调度逻辑 ---
@@ -1054,6 +1019,16 @@ class ProactiveChatPlugin(star.Star):
         is_bot_message = False
         current_time = time.time()
 
+        # v1.0.0-beta.6 修复 (内存泄漏): 定期清理过期的会话状态，防止内存泄漏
+        # 每10次调用清理一次
+        if hasattr(self, "_cleanup_counter"):
+            self._cleanup_counter += 1
+        else:
+            self._cleanup_counter = 1
+
+        if self._cleanup_counter % 10 == 0:
+            self._cleanup_expired_session_states(current_time)
+
         try:
             # 核心检测逻辑1: 时间窗口检测（最可靠）- v1.0.0-beta.4修复：使用会话隔离状态
             session_state = self.session_temp_state.get(session_id, {})
@@ -1197,13 +1172,15 @@ class ProactiveChatPlugin(star.Star):
         这是主动消息发送前的必要检查，包括：
         1. 检查插件是否在该会话中启用
         2. 检查当前时间是否在免打扰时段内
-        3. 如果条件不满足，会自动重新调度任务
 
         返回值：
         - True: 允许进行主动聊天
         - False: 不允许进行主动聊天（插件禁用或免打扰时段）
 
-        这个函数确保了主动消息只在合适的时间和条件下发送。
+        这个函数是纯查询函数，不包含任何副作用。
+        重新调度的逻辑由调用方根据返回值决定。
+
+        v1.0.0-beta.6 修复 (函数副作用): 重新调度逻辑移至调用方处理
         """
         session_config = self._get_session_config(session_id)
         if not session_config or not session_config.get("enable", False):
@@ -1211,8 +1188,7 @@ class ProactiveChatPlugin(star.Star):
 
         schedule_conf = session_config.get("schedule_settings", {})
         if is_quiet_time(schedule_conf.get("quiet_hours", "1-7"), self.timezone):
-            logger.info("[主动消息] 当前为免打扰时段，跳过并重新调度喵。")
-            await self._schedule_next_chat_and_save(session_id)
+            logger.info("[主动消息] 当前为免打扰时段喵。")
             return False
 
         return True
@@ -1466,6 +1442,9 @@ class ProactiveChatPlugin(star.Star):
         """
         try:
             if not await self._is_chat_allowed(session_id):
+                # v1.0.0-beta.6 修复 (函数副作用): 将重新调度逻辑移至调用方，由调用方根据返回值决定操作
+                logger.info("[主动消息] 当前为免打扰时段，跳过并重新调度喵。")
+                await self._schedule_next_chat_and_save(session_id)
                 return
 
             session_config = self._get_session_config(session_id)
@@ -1600,24 +1579,23 @@ class ProactiveChatPlugin(star.Star):
                 # 情况2: 私聊任务 - 保留数据，因为私聊使用APScheduler定时任务
                 # 私聊任务的数据应该保留，直到任务真正执行或过期
                 else:
+                    # v1.0.0-beta.6 修复 (数据覆盖): 安全更新数据，避免数据丢失
                     # 私聊任务保留next_trigger_time数据，用于程序重启时恢复
-                    # 但清理其他临时数据
                     async with self.data_lock:
-                        # 保留next_trigger_time，但确保其他数据正确
+                        # 安全地更新数据，而不是完全替换，避免数据丢失
                         if session_id in self.session_data:
-                            # 只保留关键数据，清理可能过期的临时数据
-                            essential_data = {
-                                "unanswered_count": self.session_data[session_id].get(
-                                    "unanswered_count", 0
-                                ),
-                                "next_trigger_time": self.session_data[session_id].get(
-                                    "next_trigger_time", None
-                                ),
-                            }
-                            self.session_data[session_id] = essential_data
+                            # 只更新必要的字段，保留其他现有数据
+                            self.session_data[session_id]["unanswered_count"] = (
+                                self.session_data[session_id].get("unanswered_count", 0)
+                            )
+                            # 确保next_trigger_time存在
+                            if "next_trigger_time" not in self.session_data[session_id]:
+                                self.session_data[session_id]["next_trigger_time"] = (
+                                    None
+                                )
                             await self._save_data_internal()
                             logger.debug(
-                                f"[主动消息] 私聊任务成功完成，保留会话 {session_id} 的关键数据用于重启恢复喵。"
+                                f"[主动消息] 私聊任务成功完成，安全更新会话 {session_id} 的数据用于重启恢复喵。"
                             )
 
             else:
@@ -1668,6 +1646,27 @@ class ProactiveChatPlugin(star.Star):
             except Exception as se:
                 logger.error(f"[主动消息] 在错误处理中重新调度失败喵: {se}")
                 logger.error(f"[主动消息] 会话 {session_id} 可能需要手动干预喵。")
+
+    # v1.0.0-beta.6 新增 (内存泄漏修复): 清理过期会话状态函数
+    def _cleanup_expired_session_states(self, current_time: float):
+        """
+        清理过期的会话状态，防止内存泄漏。
+
+        删除超过5分钟的旧状态条目，确保内存使用保持合理。
+        由于状态只在Bot回复时清理，如果Bot没有回复，状态会永久残留。
+        """
+        expired_sessions = []
+        timeout_seconds = 300  # 5分钟超时
+
+        for session_id, state in self.session_temp_state.items():
+            last_user_time = state.get("last_user_time", 0)
+            if current_time - last_user_time > timeout_seconds:
+                expired_sessions.append(session_id)
+
+        # 删除过期的会话状态
+        for session_id in expired_sessions:
+            del self.session_temp_state[session_id]
+            logger.debug(f"[主动消息] 清理了过期的会话状态: {session_id}")
 
 
 def is_quiet_time(quiet_hours_str: str, tz: zoneinfo.ZoneInfo) -> bool:
