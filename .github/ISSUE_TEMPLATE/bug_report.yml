@@ -28,11 +28,11 @@ body:
 
   - type: textarea
     attributes:
-      label: AstrBot 版本、部署方式（如 Windows Docker Desktop 部署）、使用的提供商、使用的消息平台适配器
+      label: 使用的插件版本、AstrBot 版本、部署方式（如 Windows Docker Desktop 部署）、使用的提供商、使用的消息平台适配器
       description: >
-        请提供您的 AstrBot 版本和部署方式。
+        请提供您使用的插件版本, AstrBot 版本和部署方式等信息。
       placeholder: >
-        如: 3.1.8 Docker, 3.1.7 Windows启动器
+        如: 1.0.0-beta.6, 4.5.7 Docker, 4.5.7 Windows启动器, DeepSeek , QQ 个人号 (OneBot v11)
     validations:
       required: true
 
