@@ -1,5 +1,5 @@
 # 文件名: main.py (位于 data/plugins/astrbot_plugin_proactive_chat/ 目录下)
-# 版本: 1.0.0-beta.6 (代码质量优化版)
+# 版本: 1.0.0-beta.7 (多会话架构版)
 
 # 导入标准库
 import asyncio
@@ -193,6 +193,21 @@ class ProactiveChatPlugin(star.Star):
         self.group_timers.clear()
         logger.info(f"[主动消息] 已取消 {timer_count} 个正在运行的群聊沉默计时器喵。")
 
+        # v1.0.0-beta.7 修复: 清理自动触发计时器，防止插件停用后仍有自动触发任务运行
+        # 这是一个历史遗留的严重bug，从1.0.0-beta.6版本就存在
+        auto_trigger_count = len(self.auto_trigger_timers)
+        for session_id, timer in list(
+            self.auto_trigger_timers.items()
+        ):  # 使用list避免字典在迭代时修改
+            try:
+                timer.cancel()
+                logger.debug(f"[主动消息] 已取消会话 {session_id} 的自动触发计时器喵。")
+            except Exception as e:
+                logger.warning(f"[主动消息] 取消自动触发计时器时出错喵: {e}")
+
+        self.auto_trigger_timers.clear()
+        logger.info(f"[主动消息] 已取消 {auto_trigger_count} 个自动触发计时器喵。")
+
         # 清理调度器中的所有任务
         if self.scheduler and self.scheduler.running:
             try:
@@ -228,12 +243,31 @@ class ProactiveChatPlugin(star.Star):
             private_settings = self.config.get("private_settings", {})
             group_settings = self.config.get("group_settings", {})
 
-            # 验证私聊配置
+            # 验证私聊配置 - 检查新的多会话架构
             if private_settings.get("enable", False):
-                target_user_id = private_settings.get("target_user_id", "")
-                if not target_user_id or not str(target_user_id).strip():
+                # 检查个性化配置槽位
+                private_sessions = self.config.get("private_sessions", {})
+                has_personal_config = False
+                for session_key in [
+                    "session_1",
+                    "session_2",
+                    "session_3",
+                    "session_4",
+                    "session_5",
+                ]:
+                    session_config = private_sessions.get(session_key, {})
+                    if session_config.get("enable", False) and session_config.get(
+                        "session_id"
+                    ):
+                        has_personal_config = True
+                        break
+
+                # 检查全局session_list
+                session_list = private_settings.get("session_list", [])
+
+                if not has_personal_config and not session_list:
                     logger.warning(
-                        "[主动消息] 私聊主动消息已启用但未配置目标用户ID喵。"
+                        "[主动消息] 私聊主动消息已启用但未配置任何会话（既无个性化配置也无session_list）喵。"
                     )
 
                 schedule_settings = private_settings.get("schedule_settings", {})
@@ -249,12 +283,31 @@ class ProactiveChatPlugin(star.Star):
                 # if min_interval < 5:
                 #     logger.warning("[主动消息] 私聊最小间隔设置过小（<5分钟），建议增加间隔时间喵。")
 
-            # 验证群聊配置
+            # 验证群聊配置 - 检查新的多会话架构
             if group_settings.get("enable", False):
-                target_group_id = group_settings.get("target_group_id", "")
-                if not target_group_id or not str(target_group_id).strip():
+                # 检查个性化配置槽位
+                group_sessions = self.config.get("group_sessions", {})
+                has_personal_config = False
+                for session_key in [
+                    "session_1",
+                    "session_2",
+                    "session_3",
+                    "session_4",
+                    "session_5",
+                ]:
+                    session_config = group_sessions.get(session_key, {})
+                    if session_config.get("enable", False) and session_config.get(
+                        "session_id"
+                    ):
+                        has_personal_config = True
+                        break
+
+                # 检查全局session_list
+                session_list = group_settings.get("session_list", [])
+
+                if not has_personal_config and not session_list:
                     logger.warning(
-                        "[主动消息] 群聊主动消息已启用但未配置目标群聊ID喵。"
+                        "[主动消息] 群聊主动消息已启用但未配置任何会话（既无个性化配置也无session_list）喵。"
                     )
 
                 # v1.0.0-beta.2 移除: 开发阶段不需要沉默时间警告
@@ -475,64 +528,209 @@ class ProactiveChatPlugin(star.Star):
         logger.info("[主动消息] 开始检查并设置自动主动消息触发器喵...")
 
         auto_trigger_count = 0
+        processed_sessions = set()  # 记录已处理的会话，避免重复
 
-        # 检查私聊配置
+        # 1. 检查私聊个性化配置槽位（优先级最高）
+        private_sessions = self.config.get("private_sessions", {})
+        for session_key in [
+            "session_1",
+            "session_2",
+            "session_3",
+            "session_4",
+            "session_5",
+        ]:
+            session_config = private_sessions.get(session_key, {})
+            if session_config.get("enable", False) and session_config.get("session_id"):
+                target_id = session_config["session_id"]
+                if target_id not in processed_sessions:
+                    session_name = session_config.get("session_name", "")
+                    auto_trigger_count += (
+                        await self._setup_auto_trigger_for_session_config(
+                            session_config, "FriendMessage", target_id, session_name
+                        )
+                    )
+                    processed_sessions.add(target_id)
+                    logger.debug(f"[主动消息] 已处理私聊个性化配置: {target_id}")
+
+        # 2. 检查群聊个性化配置槽位（优先级最高）
+        group_sessions = self.config.get("group_sessions", {})
+        for session_key in [
+            "session_1",
+            "session_2",
+            "session_3",
+            "session_4",
+            "session_5",
+        ]:
+            session_config = group_sessions.get(session_key, {})
+            if session_config.get("enable", False) and session_config.get("session_id"):
+                target_id = session_config["session_id"]
+                if target_id not in processed_sessions:
+                    session_name = session_config.get("session_name", "")
+                    auto_trigger_count += (
+                        await self._setup_auto_trigger_for_session_config(
+                            session_config, "GroupMessage", target_id, session_name
+                        )
+                    )
+                    processed_sessions.add(target_id)
+                    logger.debug(f"[主动消息] 已处理群聊个性化配置: {target_id}")
+
+        # 3. 检查全局配置的session_list（只处理未在个性化配置中的会话）
         private_settings = self.config.get("private_settings", {})
-        if private_settings.get("enable", False):
-            auto_trigger_count += await self._setup_auto_trigger_for_session_type(
-                private_settings, "FriendMessage", "target_user_id"
+        session_list = private_settings.get("session_list", [])
+        if private_settings.get("enable", False) and session_list:
+            for target_id in session_list:
+                if target_id not in processed_sessions:
+                    # 尝试从个性化配置中获取备注名，如果没有就为空
+                    session_name = ""
+                    for session_key in [
+                        "session_1",
+                        "session_2",
+                        "session_3",
+                        "session_4",
+                        "session_5",
+                    ]:
+                        session_config = private_sessions.get(session_key, {})
+                        if session_config.get("session_id") == target_id:
+                            session_name = session_config.get("session_name", "")
+                            break
+
+                    auto_trigger_count += (
+                        await self._setup_auto_trigger_for_session_config(
+                            private_settings, "FriendMessage", target_id, session_name
+                        )
+                    )
+                    processed_sessions.add(target_id)
+                    logger.debug(f"[主动消息] 已处理私聊全局配置: {target_id}")
+
+        group_settings = self.config.get("group_settings", {})
+        session_list = group_settings.get("session_list", [])
+        if group_settings.get("enable", False) and session_list:
+            for target_id in session_list:
+                if target_id not in processed_sessions:
+                    # 尝试从个性化配置中获取备注名，如果没有就为空
+                    session_name = ""
+                    for session_key in [
+                        "session_1",
+                        "session_2",
+                        "session_3",
+                        "session_4",
+                        "session_5",
+                    ]:
+                        session_config = group_sessions.get(session_key, {})
+                        if session_config.get("session_id") == target_id:
+                            session_name = session_config.get("session_name", "")
+                            break
+
+                    auto_trigger_count += (
+                        await self._setup_auto_trigger_for_session_config(
+                            group_settings, "GroupMessage", target_id, session_name
+                        )
+                    )
+                    processed_sessions.add(target_id)
+                    logger.debug(f"[主动消息] 已处理群聊全局配置: {target_id}")
+
+        # 4. 检查全局配置的默认设置（没有session_list的情况）
+        if private_settings.get("enable", False) and not private_settings.get(
+            "session_list", []
+        ):
+            logger.warning(
+                "[主动消息] 私聊全局配置已启用但未配置session_list，无法设置自动触发器喵。"
             )
 
-        # 检查群聊配置
-        group_settings = self.config.get("group_settings", {})
-        if group_settings.get("enable", False):
-            auto_trigger_count += await self._setup_auto_trigger_for_session_type(
-                group_settings, "GroupMessage", "target_group_id"
-            )
-        else:
-            logger.debug("[主动消息] 群聊主动消息功能未启用喵。")
+        if group_settings.get("enable", False) and not group_settings.get(
+            "session_list", []
+        ):
+            logger.debug("[主动消息] 群聊全局配置已启用但未配置session_list喵。")
 
         if auto_trigger_count == 0:
-            logger.info("[主动消息] 没有会话启用自动主动消息功能喵。")
+            # 更精确地分析为什么没有设置触发器
+            has_auto_trigger_config = False
+
+            # 检查私聊个性化配置
+            private_sessions = self.config.get("private_sessions", {})
+            for session_key in [
+                "session_1",
+                "session_2",
+                "session_3",
+                "session_4",
+                "session_5",
+            ]:
+                session_config = private_sessions.get(session_key, {})
+                if session_config.get("auto_trigger_settings", {}).get(
+                    "enable_auto_trigger", False
+                ):
+                    has_auto_trigger_config = True
+                    break
+
+            # 检查群聊个性化配置
+            if not has_auto_trigger_config:
+                group_sessions = self.config.get("group_sessions", {})
+                for session_key in [
+                    "session_1",
+                    "session_2",
+                    "session_3",
+                    "session_4",
+                    "session_5",
+                ]:
+                    session_config = group_sessions.get(session_key, {})
+                    if session_config.get("auto_trigger_settings", {}).get(
+                        "enable_auto_trigger", False
+                    ):
+                        has_auto_trigger_config = True
+                        break
+
+            # 检查全局配置
+            if not has_auto_trigger_config:
+                private_settings = self.config.get("private_settings", {})
+                group_settings = self.config.get("group_settings", {})
+                if private_settings.get("auto_trigger_settings", {}).get(
+                    "enable_auto_trigger", False
+                ) or group_settings.get("auto_trigger_settings", {}).get(
+                    "enable_auto_trigger", False
+                ):
+                    has_auto_trigger_config = True
+
+            if has_auto_trigger_config:
+                logger.info(
+                    "[主动消息] 检测到自动主动消息配置，但会话ID无效或未配置，无法设置触发器喵。"
+                )
+            else:
+                logger.info("[主动消息] 没有会话启用自动主动消息功能喵。")
         else:
             logger.info(
                 f"[主动消息] 已为 {auto_trigger_count} 个会话设置自动主动消息触发器喵。"
             )
 
-    # v1.0.0-beta.6 优化 (代码结构): 提取公共逻辑，减少代码重复
-    # 原函数 _setup_auto_triggers_for_enabled_sessions 中私聊和群聊逻辑几乎完全相同
-    # 新函数参数化消息类型和目标ID，消除重复代码，提高可维护性
-    async def _setup_auto_trigger_for_session_type(
-        self, settings: dict, message_type: str, target_id_key: str
+    # v1.0.0-beta.7 新增: 支持多会话的自动触发器设置
+    async def _setup_auto_trigger_for_session_config(
+        self, settings: dict, message_type: str, target_id: str, session_name: str = ""
     ) -> int:
         """
-        为指定类型的会话设置自动触发器。
+        为指定会话配置设置自动触发器（支持多会话架构）。
 
         参数：
-        - settings: 配置设置（私聊或群聊）
+        - settings: 会话配置设置
         - message_type: 消息类型（FriendMessage 或 GroupMessage）
-        - target_id_key: 目标ID的键名（target_user_id 或 target_group_id）
+        - target_id: 目标ID（用户QQ号或群号）
+        - session_name: 会话备注名，用于日志显示
 
         返回：设置的触发器数量
         """
-        # 为了日志可读性，转换消息类型为中文描述
         type_description = "私聊" if message_type == "FriendMessage" else "群聊"
+        # 修复会话名称显示：如果有备注名就显示"备注名(ID)"，没有就显示ID
+        if session_name and session_name.strip():
+            display_name = f"{session_name}({target_id})"
+        else:
+            display_name = target_id
 
         auto_trigger_settings = settings.get("auto_trigger_settings", {})
         if not auto_trigger_settings.get("enable_auto_trigger", False):
-            logger.info(f"[主动消息] {type_description}未启用自动主动消息功能喵。")
-            return 0
-
-        target_id = str(settings.get(target_id_key, "")).strip()
-        if not target_id:
-            id_description = "用户ID" if target_id_key == "target_user_id" else "群聊ID"
-            logger.warning(
-                f"[主动消息] {type_description}启用了自动触发但未配置目标{id_description}喵。"
+            logger.debug(
+                f"[主动消息] {type_description}{display_name} 未启用自动主动消息功能喵。"
             )
             return 0
 
         # 检查是否已经有持久化的主动消息任务
-        # 重要：只认为未过期的任务才是"有效任务"
         has_existing_task = False
         current_time = time.time()
         for session_id, session_info in self.session_data.items():
@@ -541,50 +739,37 @@ class ProactiveChatPlugin(star.Star):
                 and f"{message_type}:{target_id}" in session_id
             ):
                 next_trigger = session_info.get("next_trigger_time")
-                # 检查任务是否过期（给1分钟宽限期，与恢复逻辑保持一致）
                 trigger_time_with_grace = next_trigger + 60
                 is_not_expired = current_time < trigger_time_with_grace
 
-                logger.debug(
-                    f"[主动消息] 检查{type_description}持久化任务: {session_id}"
-                )
-                logger.debug(
-                    f"[主动消息] 触发时间: {next_trigger}, 当前时间: {current_time}"
-                )
-                logger.debug(f"[主动消息] 是否未过期: {is_not_expired}")
-
                 if is_not_expired:
                     logger.debug(
-                        f"[主动消息] 找到有效的{type_description}持久化任务: {session_id}"
+                        f"[主动消息] 找到有效的{type_description}持久化任务喵: {session_id}"
                     )
                     has_existing_task = True
                     break
-                else:
-                    logger.debug(
-                        f"[主动消息] {type_description}任务已过期，不视为有效任务: {session_id}"
-                    )
 
         if has_existing_task:
             logger.info(
-                f"[主动消息] {type_description}会话 {target_id} 已存在持久化的主动消息任务，"
+                f"[主动消息] {type_description} {display_name} 已存在持久化的主动消息任务喵，"
                 f"跳过自动触发器设置以避免冲突喵。"
             )
             return 0
 
         # 使用指定格式的会话ID，但需要先确定平台名称
-        # 从已有的会话数据中提取平台名称，如果没有则使用默认的"default"
         platform_name = "default"
         for existing_session_id in self.session_data.keys():
             if f"{message_type}:{target_id}" in existing_session_id:
-                # 提取平台名称（第一部分）
                 platform_name = existing_session_id.split(":")[0]
                 break
 
         session_id = f"{platform_name}:{message_type}:{target_id}"
-        logger.debug(f"[主动消息] 为{type_description}设置自动触发器喵: {session_id}")
+        logger.debug(
+            f"[主动消息] 为{type_description} {display_name} 设置自动触发器喵: {session_id}"
+        )
         await self._setup_auto_trigger(session_id)
         logger.info(
-            f"[主动消息] 已为{type_description}会话 {target_id} 设置自动触发器喵。"
+            f"[主动消息] 已为 {type_description} {display_name} 设置自动触发器喵。"
         )
         return 1
 
@@ -592,34 +777,105 @@ class ProactiveChatPlugin(star.Star):
 
     def _get_session_config(self, umo: str) -> dict | None:
         """
-        根据统一消息来源(umo)获取对应的私聊或群聊配置块。
+        根据统一消息来源(umo)获取对应的会话配置。
 
-        这是v1.0.0-beta.1版本的多会话架构核心函数，负责：
-        1. 解析umo字符串，判断是群聊还是私聊
-        2. 提取目标群聊ID或目标用户ID
-        3. 验证当前umo是否属于配置的目标会话
-        4. 返回对应的配置块（私聊配置或群聊配置）
+        v1.0.0-beta.7 重构: 支持多会话配置，先检查个性化配置，再检查全局配置。
+
+        配置优先级：
+        1. 个性化会话配置（私聊/群聊槽位）
+        2. 全局配置中的session_list匹配
+        3. 全局配置的默认设置
 
         返回值：配置字典（如果找到且启用）或None（如果未找到或禁用）
-        这个函数确保了插件只会对配置中指定的目标会话生效。
         """
-        # v1.0.0-beta.6 修复 (逻辑正确性): 精确解析umo字符串格式，避免误判
+        # 解析umo字符串格式
         parts = umo.split(":")
-        if len(parts) >= 3:
-            message_type = parts[1]  # 第二部分是消息类型
+        if len(parts) < 3:
+            return None
 
-            if message_type == "GroupMessage":
-                group_conf = self.config.get("group_settings", {})
-                target_group_id = str(group_conf.get("target_group_id", "")).strip()
-                # 确保 umo 属于目标群聊
-                if target_group_id and f":{target_group_id}" in umo:
-                    return group_conf
-            elif message_type == "FriendMessage":
-                private_conf = self.config.get("private_settings", {})
-                target_user_id = str(private_conf.get("target_user_id", "")).strip()
-                # 确保 umo 属于目标私聊
-                if target_user_id and f":{target_user_id}" in umo:
-                    return private_conf
+        message_type = parts[1]  # 第二部分是消息类型
+        target_id = parts[-1]  # 最后一部分是用户ID或群ID
+
+        # 根据消息类型分别处理
+        if message_type == "FriendMessage":
+            return self._get_private_session_config(umo, target_id)
+        elif message_type == "GroupMessage":
+            return self._get_group_session_config(umo, target_id)
+
+        return None
+
+    def _get_private_session_config(self, umo: str, target_id: str) -> dict | None:
+        """获取私聊会话配置"""
+        # 1. 检查个性化配置槽位
+        private_sessions = self.config.get("private_sessions", {})
+        for session_key in [
+            "session_1",
+            "session_2",
+            "session_3",
+            "session_4",
+            "session_5",
+        ]:
+            session_config = private_sessions.get(session_key, {})
+            if (
+                session_config.get("enable", False)
+                and session_config.get("session_id", "") == target_id
+            ):
+                # 添加会话名称到配置中，用于日志显示
+                config_copy = session_config.copy()
+                config_copy["_session_name"] = session_config.get("session_name", "")
+                config_copy["_session_type"] = "private"
+                return config_copy
+
+        # 2. 检查全局配置的session_list（严格模式：必须明确在list中）
+        private_settings = self.config.get("private_settings", {})
+        if not private_settings.get("enable", False):
+            return None
+
+        session_list = private_settings.get("session_list", [])
+        if target_id in session_list:
+            # 只有明确在list中的才提供服务
+            config_copy = private_settings.copy()
+            config_copy["_session_type"] = "private"
+            config_copy["_from_session_list"] = True
+            return config_copy
+
+        return None
+
+    def _get_group_session_config(self, umo: str, target_id: str) -> dict | None:
+        """获取群聊会话配置"""
+        # 1. 检查个性化配置槽位
+        group_sessions = self.config.get("group_sessions", {})
+        for session_key in [
+            "session_1",
+            "session_2",
+            "session_3",
+            "session_4",
+            "session_5",
+        ]:
+            session_config = group_sessions.get(session_key, {})
+            if (
+                session_config.get("enable", False)
+                and session_config.get("session_id", "") == target_id
+            ):
+                # 添加会话名称到配置中，用于日志显示
+                config_copy = session_config.copy()
+                config_copy["_session_name"] = session_config.get("session_name", "")
+                config_copy["_session_type"] = "group"
+                return config_copy
+
+        # 2. 检查全局配置的session_list（严格模式：必须明确在list中）
+        group_settings = self.config.get("group_settings", {})
+        if not group_settings.get("enable", False):
+            return None
+
+        session_list = group_settings.get("session_list", [])
+        if target_id in session_list:
+            # 只有明确在list中的才提供服务
+            config_copy = group_settings.copy()
+            config_copy["_session_type"] = "group"
+            config_copy["_from_session_list"] = True
+            return config_copy
+
         return None
 
     # --- 核心调度逻辑 ---
@@ -662,17 +918,30 @@ class ProactiveChatPlugin(star.Star):
             # v1.0.0-beta.1 架构重构: 检查此会话是否有对应的配置
             session_config = self._get_session_config(session_id)
 
-            # 增强调试信息
-            logger.debug(f"[主动消息] 检查会话喵 {session_id}:")
+            # 增强调试信息，包含会话名称
+            session_name = (
+                session_config.get("_session_name", "") if session_config else ""
+            )
+            session_desc = f"({session_name})" if session_name else ""
+            logger.debug(f"[主动消息] 检查会话喵 {session_id}{session_desc}:")
             logger.debug(f"[主动消息] 会话信息喵: {session_info}")
             logger.debug(f"[主动消息] 配置有效性喵: {session_config is not None}")
             if session_config:
                 logger.debug(
                     f"[主动消息] 配置启用状态: {session_config.get('enable', False)}"
                 )
+                # 显示配置来源
+                if session_config.get("_from_session_list"):
+                    logger.debug("[主动消息] 配置来源: 全局session_list匹配")
+                elif session_config.get("_from_global"):
+                    logger.debug("[主动消息] 配置来源: 全局默认配置")
+                else:
+                    logger.debug("[主动消息] 配置来源: 个性化配置槽位")
 
             if not session_config or not session_config.get("enable", False):
-                logger.debug(f"[主动消息]   会话 {session_id} 配置无效或未启用，跳过喵")
+                logger.debug(
+                    f"[主动消息]   会话 {session_id}{session_desc} 配置无效或未启用，跳过喵"
+                )
                 continue
 
             next_trigger = session_info.get("next_trigger_time")
@@ -716,8 +985,11 @@ class ProactiveChatPlugin(star.Star):
                             replace_existing=True,
                             misfire_grace_time=60,
                         )
+                        # v1.0.0-beta.7 新增: 显示会话名称
+                        session_name = session_config.get("_session_name", "")
+                        session_desc = f"({session_name})" if session_name else ""
                         logger.info(
-                            f"[主动消息] 已成功从文件恢复任务喵: {session_id}, 执行时间: {run_date} 喵"
+                            f"[主动消息] 已成功从文件恢复任务喵: {session_id} {session_desc}, 执行时间: {run_date} 喵"
                         )
                         restored_count += 1
                     except Exception as e:
@@ -726,8 +998,11 @@ class ProactiveChatPlugin(star.Star):
                         )
                 else:
                     # 任务已过期，记录日志但不清理数据
+                    # v1.0.0-beta.7 新增: 显示会话名称
+                    session_name = session_config.get("_session_name", "")
+                    session_desc = f"({session_name})" if session_name else ""
                     logger.info(
-                        f"[主动消息] 会话 {session_id} 的任务已过期，跳过恢复喵。"
+                        f"[主动消息] 会话 {session_id} {session_desc} 的任务已过期，跳过恢复喵。"
                     )
                     logger.debug(
                         f"[主动消息] 触发时间: {datetime.fromtimestamp(next_trigger)} 喵"
@@ -849,8 +1124,11 @@ class ProactiveChatPlugin(star.Star):
         if session_config and session_config.get("enable", False):
             if session_id not in self.first_message_logged:
                 self.first_message_logged.add(session_id)
+                # v1.0.0-beta.7 新增: 显示会话名称
+                session_name = session_config.get("_session_name", "")
+                session_desc = f"({session_name})" if session_name else ""
                 logger.info(
-                    f"[主动消息] 已记录私聊消息时间并取消自动触发喵，会话ID: {session_id}"
+                    f"[主动消息] 已记录私聊消息时间并取消自动触发喵，会话ID: {session_id} {session_desc}"
                 )
         # 后续消息不再打印日志，保持简洁
 
@@ -862,14 +1140,22 @@ class ProactiveChatPlugin(star.Star):
         # v1.0.0-beta.1 修复: 在重新调度前，先尝试取消任何已存在的、由 APScheduler 设置的定时任务
         try:
             self.scheduler.remove_job(session_id)
+            # v1.0.0-beta.7 新增: 显示会话名称
+            session_name = session_config.get("_session_name", "")
+            session_desc = f"({session_name})" if session_name else ""
             logger.info(
-                f"[主动消息] 用户已回复喵，已取消会话 {session_id} 的预定主动消息任务喵。"
+                f"[主动消息] 用户已回复喵，已取消会话 {session_id} {session_desc} 的预定主动消息任务喵。"
             )
         except Exception:  # JobLookupError
             pass  # 如果任务不存在，说明是正常情况，无需处理
 
         # 重要：只重置当前会话的计数器，不影响其他会话
-        logger.info(f"[主动消息] 重置会话 {session_id} 的未回复计数器为0喵。")
+        # v1.0.0-beta.7 新增: 显示会话名称
+        session_name = session_config.get("_session_name", "")
+        session_desc = f"({session_name})" if session_name else ""
+        logger.info(
+            f"[主动消息] 重置会话 {session_id} {session_desc} 的未回复计数器为0喵。"
+        )
         await self._schedule_next_chat_and_save(session_id, reset_counter=True)
 
     # v1.0.0-beta.1 新增: 群聊消息监听与智能触发
@@ -916,8 +1202,11 @@ class ProactiveChatPlugin(star.Star):
         if session_config and session_config.get("enable", False):
             if session_id not in self.first_message_logged:
                 self.first_message_logged.add(session_id)
+                # v1.0.0-beta.7 新增: 显示会话名称
+                session_name = session_config.get("_session_name", "")
+                session_desc = f"({session_name})" if session_name else ""
                 logger.info(
-                    f"[主动消息] 已记录群聊消息时间并取消自动触发喵，会话ID: {session_id}"
+                    f"[主动消息] 已记录群聊消息时间并取消自动触发喵，会话ID: {session_id}{session_desc}"
                 )
         # 后续消息不再打印日志，保持简洁
 
