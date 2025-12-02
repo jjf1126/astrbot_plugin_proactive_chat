@@ -161,6 +161,24 @@ class ProactiveChatPlugin(star.Star):
             await self._load_data_internal()
         logger.info("[主动消息] 已成功从文件加载会话数据喵。")
 
+        # v1.0.0-beta.7 修复: 从持久化数据中恢复最后消息时间
+        # 注意：只恢复插件启动后的消息时间，插件启动前的历史消息不影响自动触发功能
+        restored_count = 0
+        for session_id, session_info in self.session_data.items():
+            if isinstance(session_info, dict) and "last_message_time" in session_info:
+                last_time = session_info["last_message_time"]
+                if isinstance(last_time, (int, float)) and last_time > 0:
+                    # 只恢复插件启动后的消息时间
+                    if last_time >= self.plugin_start_time:
+                        self.last_message_times[session_id] = last_time
+                        restored_count += 1
+                        logger.debug(f"[主动消息] 已恢复会话在插件启动后的消息时间喵: {session_id} -> {datetime.fromtimestamp(last_time)}")
+                    else:
+                        logger.debug(f"[主动消息] 忽略插件启动前的历史消息时间用于自动主动消息任务喵: {session_id} -> {datetime.fromtimestamp(last_time)}")
+          
+        if restored_count > 0:
+            logger.info(f"[主动消息] 已从持久化数据恢复 {restored_count} 个会话在插件启动后的消息时间喵。")
+
         try:
             self.timezone = zoneinfo.ZoneInfo(self.context.get_config().get("timezone"))
         except (zoneinfo.ZoneInfoNotFoundError, TypeError, KeyError, ValueError) as e:
@@ -323,14 +341,18 @@ class ProactiveChatPlugin(star.Star):
 
     # --- v1.0.0-beta.2 新增: 自动主动消息功能 ---
 
-    async def _setup_auto_trigger(self, session_id: str):
+    async def _setup_auto_trigger(self, session_id: str, silent: bool = False):
         """
-        为指定会话设置自动主动消息触发器。
+        为指定会话设置自动主动消息触发器（核心实现）。
 
         这是自动主动消息功能的核心方法，负责：
         1. 检查会话是否启用了自动触发功能
         2. 设置自动触发计时器
         3. 当计时器到期时，创建主动消息任务（不是直接发送消息）
+
+        参数：
+        - session_id: 目标会话ID
+        - silent: 是否静默执行（不打印日志）
 
         注意：这个功能只在插件启动后的一段时间内有效，一旦收到消息就会取消自动触发。
         """
@@ -366,58 +388,56 @@ class ProactiveChatPlugin(star.Star):
             finally:
                 del self.auto_trigger_timers[session_id]
 
-        # 定义自动触发回调函数
-        def _auto_trigger_callback():
+        # 定义自动触发回调函数 - 修复闭包变量捕获问题
+        def _auto_trigger_callback(captured_session_id=session_id):
             try:
                 # 检查是否仍然需要自动触发（避免重复触发）
-                if session_id not in self.auto_trigger_timers:
+                if captured_session_id not in self.auto_trigger_timers:
                     logger.debug(
-                        f"[主动消息] 会话 {session_id} 的自动触发已被取消，跳过喵。"
+                        f"[主动消息] 会话 {captured_session_id} 的自动触发已被取消，跳过喵。"
                     )
                     return
 
                 # 检查配置是否仍然有效
-                current_config = self._get_session_config(session_id)
+                current_config = self._get_session_config(captured_session_id)
                 if not current_config or not current_config.get("enable", False):
                     logger.info(
-                        f"[主动消息] 会话 {session_id} 的配置已禁用，取消自动触发喵。"
+                        f"[主动消息] 会话 {captured_session_id} 的配置已禁用，取消自动触发喵。"
                     )
                     return
 
-                # 检查是否已经有活动（收到过消息）
-                last_message_time = self.last_message_times.get(session_id, 0)
+                # 检查是否已经有活动（收到过消息）- 修复：只检查插件启动后的消息
+                last_message_time = self.last_message_times.get(captured_session_id, 0)
                 current_time = time.time()
                 time_since_plugin_start = current_time - self.plugin_start_time
 
                 # 调试信息：帮助理解自动触发条件判断
                 logger.debug(
-                    f"[主动消息] 自动触发检查 - 会话: {session_id}, "
-                    f"最后消息时间: {last_message_time}, "
+                    f"[主动消息] 自动触发检查 - 会话: {captured_session_id}, "
+                    f"插件启动后最后消息时间: {last_message_time}, "
                     f"插件启动时间: {self.plugin_start_time}, "
                     f"当前时间: {current_time}, "
                     f"插件运行时间: {time_since_plugin_start:.0f}秒, "
-                    f"需要等待时间: {auto_trigger_minutes * 60}秒"
+                    f"需要等待时间: {auto_trigger_minutes * 60}秒, "
+                    f"插件启动后是否收到消息: {last_message_time > 0}"
                 )
 
-                # 只有在插件启动后且没有收到过消息时才触发
+                # v1.0.0-beta.7 修复: 只检查插件启动后是否收到消息
+                # 插件启动前的历史消息不影响自动触发功能
                 if last_message_time == 0 and time_since_plugin_start >= (
                     auto_trigger_minutes * 60
                 ):
-                    logger.info(
-                        f"[主动消息] 🚀 会话 {session_id} 满足自动触发条件，创建主动消息任务喵！"
-                    )
-
                     # 重要：创建任务而不是直接发送消息，但避免持久化
                     # 自动触发的任务不应该被持久化，避免与正常任务冲突
                     try:
-                        session_config = self._get_session_config(session_id)
-                        if not session_config:
+                        current_session_config = self._get_session_config(captured_session_id)
+                        if not current_session_config:
                             logger.warning(
-                                f"[主动消息] 无法获取会话配置，取消自动触发喵: {session_id}"
+                                f"[主动消息] 无法获取会话配置，取消自动触发喵: {captured_session_id}"
                             )
                             return
 
-                        schedule_conf = session_config.get("schedule_settings", {})
+                        schedule_conf = current_session_config.get("schedule_settings", {})
                         min_interval = (
                             int(schedule_conf.get("min_interval_minutes", 30)) * 60
                         )
@@ -436,26 +456,27 @@ class ProactiveChatPlugin(star.Star):
                             self.check_and_chat,
                             "date",
                             run_date=run_date,
-                            args=[session_id],
-                            id=session_id,
+                            args=[captured_session_id],
+                            id=captured_session_id,
                             replace_existing=True,
                             misfire_grace_time=60,
                         )
 
+                        # 合并日志：一行包含所有关键信息
                         logger.info(
-                            f"[主动消息] 自动触发任务已创建喵: {session_id}, 执行时间 (非持久化): {run_date.strftime('%Y-%m-%d %H:%M:%S')} 喵"
+                            f"[主动消息] 🚀 会话 {captured_session_id} 满足条件，自动触发任务已创建喵！执行时间 (非持久化): {run_date.strftime('%Y-%m-%d %H:%M:%S')} 喵"
                         )
 
                     except Exception as e:
                         logger.error(f"[主动消息] 自动触发任务创建失败喵: {e}")
 
                     # 清理自动触发计时器（只触发一次）
-                    if session_id in self.auto_trigger_timers:
-                        del self.auto_trigger_timers[session_id]
+                    if captured_session_id in self.auto_trigger_timers:
+                        del self.auto_trigger_timers[captured_session_id]
 
                 else:
                     logger.debug(
-                        f"[主动消息] 会话 {session_id} 不满足自动触发条件喵："
+                        f"[主动消息] 会话 {captured_session_id} 不满足自动触发条件喵："
                         f"最后消息时间={last_message_time}, 插件启动时间={self.plugin_start_time}"
                     )
 
@@ -472,10 +493,12 @@ class ProactiveChatPlugin(star.Star):
                 delay_seconds, _auto_trigger_callback
             )
 
-            logger.info(
-                f"[主动消息] 已为会话 {session_id} 设置自动主动消息触发器喵，"
-                f"将在 {auto_trigger_minutes} 分钟后检查是否需要自动触发喵。"
-            )
+            # 根据silent参数决定是否打印日志，避免重复
+            if not silent:
+                logger.info(
+                    f"[主动消息] 已为会话 {session_id} 设置自动主动消息触发器喵，"
+                    f"将在 {auto_trigger_minutes} 分钟后检查是否需要自动触发喵。"
+                )
 
         except Exception as e:
             logger.error(f"[主动消息] 设置自动触发计时器失败喵: {e}")
@@ -736,7 +759,7 @@ class ProactiveChatPlugin(star.Star):
         for session_id, session_info in self.session_data.items():
             if (
                 session_info.get("next_trigger_time")
-                and f"{message_type}:{target_id}" in session_id
+                and session_id.endswith(f":{message_type}:{target_id}")
             ):
                 next_trigger = session_info.get("next_trigger_time")
                 trigger_time_with_grace = next_trigger + 60
@@ -759,7 +782,8 @@ class ProactiveChatPlugin(star.Star):
         # 使用指定格式的会话ID，但需要先确定平台名称
         platform_name = "default"
         for existing_session_id in self.session_data.keys():
-            if f"{message_type}:{target_id}" in existing_session_id:
+            # 修复：精确匹配，避免错误匹配到其他会话
+            if existing_session_id.endswith(f":{message_type}:{target_id}"):
                 platform_name = existing_session_id.split(":")[0]
                 break
 
@@ -767,10 +791,13 @@ class ProactiveChatPlugin(star.Star):
         logger.debug(
             f"[主动消息] 为{type_description} {display_name} 设置自动触发器喵: {session_id}"
         )
-        await self._setup_auto_trigger(session_id)
+        # 优化：在外层函数统一打印完整的日志信息，内层函数静默执行，避免重复
+        auto_trigger_minutes = auto_trigger_settings.get("auto_trigger_after_minutes", 5)
         logger.info(
-            f"[主动消息] 已为 {type_description} {display_name} 设置自动触发器喵。"
+            f"[主动消息] 已为 {type_description} {display_name} 设置自动触发器喵，"
+            f"将在 {auto_trigger_minutes} 分钟后检查是否需要自动触发喵。"
         )
+        await self._setup_auto_trigger(session_id, silent=True)
         return 1
 
     # --- v1.0.0-beta.1 架构重构: 配置获取 ---
@@ -1095,9 +1122,18 @@ class ProactiveChatPlugin(star.Star):
         logger.debug(f"[主动消息] 收到私聊消息喵，会话ID: {session_id}")
 
         # v1.0.0-beta.2 新增: 记录消息时间并取消自动触发
+        # v1.0.0-beta.7 修复: 只记录插件启动后的消息时间，用于自动触发功能
         current_time = time.time()
         self.last_message_times[session_id] = current_time
-        logger.debug(f"[主动消息] 记录私聊消息时间喵: {session_id} -> {current_time}")
+        
+        # 持久化插件启动后的消息时间，确保插件重载后能恢复状态
+        async with self.data_lock:
+            # 只保存插件启动后的消息时间
+            if current_time >= self.plugin_start_time:
+                self.session_data.setdefault(session_id, {})["last_message_time"] = current_time
+                logger.debug(f"[主动消息] 已记录私聊消息时间喵（插件启动后）: {session_id} -> {current_time}")
+            else:
+                logger.debug(f"[主动消息] 忽略插件启动前的私聊旧消息喵: {session_id} -> {current_time}")
 
         # 尝试取消自动触发 - 支持多种会话ID格式
         await self._cancel_auto_trigger(session_id)
@@ -1177,7 +1213,15 @@ class ProactiveChatPlugin(star.Star):
 
         # v1.0.0-beta.2 新增: 记录消息时间并取消自动触发
         self.last_message_times[session_id] = current_time
-        logger.debug(f"[主动消息] 记录群聊消息时间喵: {session_id} -> {current_time}")
+        
+        # v1.0.0-beta.7 修复: 只持久化插件启动后的消息时间，用于自动触发功能
+        async with self.data_lock:
+            # 只保存插件启动后的消息时间
+            if current_time >= self.plugin_start_time:
+                self.session_data.setdefault(session_id, {})["last_message_time"] = current_time
+                logger.debug(f"[主动消息] 已记录群聊消息时间喵（插件启动后）: {session_id} -> {current_time}")
+            else:
+                logger.debug(f"[主动消息] 忽略插件启动前的群聊旧消息用于自动主动消息任务喵: {session_id} -> {current_time}")
         await self._cancel_auto_trigger(session_id)
 
         # 同时尝试取消基于GroupMessage格式的触发器（为了兼容初始化时的设置）
@@ -1395,47 +1439,47 @@ class ProactiveChatPlugin(star.Star):
             f"[主动消息] 将为 {session_id} 设置 {idle_minutes} 分钟的沉默倒计时喵。"
         )
 
-        # 定义倒计时结束后的回调函数
-        def _schedule_callback():
+        # 定义倒计时结束后的回调函数 - 修复闭包变量捕获问题
+        def _schedule_callback(captured_session_id=session_id):
             try:
                 # v1.0.0-beta.1 修复: 在创建任务前，验证群聊是否仍然处于沉默状态
                 # 重要：倒计时结束时，需要检查群聊是否仍然值得发送主动消息
 
                 # 检查1: 验证当前是否还有活跃的计时器（如果群聊活跃，计时器应该被重置）
-                if session_id not in self.group_timers:
+                if captured_session_id not in self.group_timers:
                     logger.info(
-                        f"[主动消息] 群聊 {session_id} 的计时器已被重置，跳过主动消息创建喵。"
+                        f"[主动消息] 群聊 {captured_session_id} 的计时器已被重置，跳过主动消息创建喵。"
                     )
                     return
 
                 # v1.0.0-beta.3 修复：
                 # 检查2: 验证会话数据是否存在，如果不存在则创建初始数据
-                if session_id not in self.session_data:
+                if captured_session_id not in self.session_data:
                     logger.info(
-                        f"[主动消息] 群聊 {session_id} 的会话数据不存在，创建初始会话数据喵。"
+                        f"[主动消息] 群聊 {captured_session_id} 的会话数据不存在，创建初始会话数据喵。"
                     )
                     # 为新会话创建初始数据
-                    self.session_data[session_id] = {"unanswered_count": 0}
+                    self.session_data[captured_session_id] = {"unanswered_count": 0}
 
                 # 检查3: 验证配置是否仍然启用
-                current_config = self._get_session_config(session_id)
+                current_config = self._get_session_config(captured_session_id)
                 if not current_config or not current_config.get("enable", False):
                     logger.info(
-                        f"[主动消息] 群聊 {session_id} 的配置已禁用或不存在，跳过主动消息创建喵。"
+                        f"[主动消息] 群聊 {captured_session_id} 的配置已禁用或不存在，跳过主动消息创建喵。"
                     )
                     return
 
                 # v1.0.0-beta.1 修复: 当群聊沉默时，不应该重置计数器。reset_counter 必须为 False。
                 # 这个回调是在主事件循环中被调用的，所以我们可以安全地创建异步任务
                 # 获取当前的未回复次数，用于显示更准确的日志
-                current_unanswered = self.session_data.get(session_id, {}).get(
+                current_unanswered = self.session_data.get(captured_session_id, {}).get(
                     "unanswered_count", 0
                 )
                 asyncio.create_task(
-                    self._schedule_next_chat_and_save(session_id, reset_counter=False)
+                    self._schedule_next_chat_and_save(captured_session_id, reset_counter=False)
                 )
                 logger.info(
-                    f"[主动消息] 群聊 {session_id} 已沉默 {idle_minutes} 分钟，开始计划主动消息喵。(当前未回复次数: {current_unanswered})"
+                    f"[主动消息] 群聊 {captured_session_id} 已沉默 {idle_minutes} 分钟，开始计划主动消息喵。(当前未回复次数: {current_unanswered})"
                 )
             except Exception as e:
                 logger.error(f"[主动消息] 沉默倒计时回调函数执行失败喵: {e}")
