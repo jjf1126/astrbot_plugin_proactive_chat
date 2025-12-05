@@ -212,7 +212,7 @@ class ProactiveChatPlugin(star.Star):
         logger.info(f"[主动消息] 已取消 {timer_count} 个正在运行的群聊沉默计时器喵。")
 
         # v1.0.0-beta.7 修复: 清理自动触发计时器，防止插件停用后仍有自动触发任务运行
-        # 这是一个历史遗留的严重bug，从1.0.0-beta.6版本就存在
+        # 这是一个历史遗留的bug，从1.0.0-beta.2版本就存在
         auto_trigger_count = len(self.auto_trigger_timers)
         for session_id, timer in list(
             self.auto_trigger_timers.items()
@@ -285,7 +285,7 @@ class ProactiveChatPlugin(star.Star):
 
                 if not has_personal_config and not session_list:
                     logger.warning(
-                        "[主动消息] 私聊主动消息已启用但未配置任何会话（既无个性化配置也无session_list）喵。"
+                        "[主动消息] 私聊主动消息已启用但未配置任何会话喵（既无个性化配置也无session_list）。"
                     )
 
                 schedule_settings = private_settings.get("schedule_settings", {})
@@ -325,7 +325,7 @@ class ProactiveChatPlugin(star.Star):
 
                 if not has_personal_config and not session_list:
                     logger.warning(
-                        "[主动消息] 群聊主动消息已启用但未配置任何会话（既无个性化配置也无session_list）喵。"
+                        "[主动消息] 群聊主动消息已启用但未配置任何会话喵（既无个性化配置也无session_list）。"
                     )
 
                 # v1.0.0-beta.2 移除: 开发阶段不需要沉默时间警告
@@ -1078,9 +1078,6 @@ class ProactiveChatPlugin(star.Star):
         async with self.data_lock:
             if reset_counter:
                 self.session_data.setdefault(session_id, {})["unanswered_count"] = 0
-                logger.info(
-                    f"[主动消息] 用户已回复喵。会话 {session_id} 的未回复计数已重置喵。"
-                )
 
             min_interval = int(schedule_conf.get("min_interval_minutes", 30)) * 60
             max_interval = max(
