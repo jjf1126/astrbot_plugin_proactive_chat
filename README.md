@@ -15,19 +15,19 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/AstrBot-v4.5.8%20Compatible-brightgreen.svg" alt="Compatible with AstrBot v4.5.8">
-  <img src="https://img.shields.io/badge/Release-v1.0.0 beta.6-brightgreen.svg" alt="Release">
+  <img src="https://img.shields.io/badge/AstrBot-v4.7.4%20Compatible-brightgreen.svg" alt="Compatible with AstrBot v4.7.4">
+  <img src="https://img.shields.io/badge/Release-v1.0.0 beta.7-brightgreen.svg" alt="Release">
   <img src="https://img.shields.io/badge/QQ群-1033089808-12B7F3.svg" alt="QQ Group">
 </p>
 
-[![Moe Counter](https://count.getloli.com/get/@DBJD-CR?theme=moebooru)](https://github.com/DBJD-CR/astrbot_plugin_proactive_chat) 
+[![Moe Counter](https://count.getloli.com/get/@DBJD-CR?theme=moebooru)](https://github.com/DBJD-CR/astrbot_plugin_proactive_chat)
 <img width="256" height="256" align="right" alt="logo" src="https://github.com/user-attachments/assets/1099597c-8d2f-4a4c-828c-43d5e7162733" />
 
 ---
 
-一个为 [AstrBot](https://github.com/AstrBotDevs/AstrBot) 设计的、功能强大的主动消息插件。它能让你的 Bot 在特定的会话长时间没有新消息后，用一个随机的时间间隔，主动发起一次拥有上下文感知、符合人设且包含动态情绪的对话。
+  一个为 [AstrBot](https://github.com/AstrBotDevs/AstrBot) 设计的、功能强大的主动消息插件。它能让你的 Bot 在特定的会话长时间没有新消息后，用一个随机的时间间隔，主动发起一次拥有上下文感知、符合人设且包含动态情绪的对话。
 
-如果你对 AI 带来的情感陪伴有需求，或者想让 ta 更加拟人，非常欢迎你来体验这个插件！
+  如果你对 AI 带来的情感陪伴有需求，或者想让 ta 更加拟人，非常欢迎你来体验这个插件！
 
 > [!IMPORTANT]
 > 本插件基于较新版本的 AstrBot 进行开发，致力于打造一个高质量的，好用的主动消息插件。
@@ -35,6 +35,30 @@
 > 推荐使用 AstrBot 版本大于等于 **v4.5.7** 以获得最佳体验。
 >
 > 目前插件处于较为活跃的开发阶段，我也会积极维护本仓库与插件。
+
+## 📑 快速导航
+
+> **💡 提示**：点击以下链接可快速跳转到对应章节
+
+- [✨ 效果示例](#-效果示例)
+- [🌟 功能特色](#-功能特色)
+- [🚀 安装与使用](#-安装与使用)
+- [⚙️ 配置说明](#️-配置说明)
+- [📂 插件目录与结构](#-插件目录与结构)
+- [🏗️ 核心架构与开发者说明](#️-核心架构与开发者说明)
+- [⚠️ 历史版本说明](#️-历史版本说明)
+- [🚧 最新版本的已知限制](#-最新版本的已知限制)
+- [❓ 常见问题简答](#-常见问题简答)
+- [🌐 平台适配情况](#-平台适配情况)
+- [📈 未来开发路线](#-未来开发路线)
+- [💖 友情链接与致谢](#-友情链接与致谢)
+- [📞 联系我们](#-联系我们)
+- [🤝 贡献](#-贡献)
+- [📄 许可证](#-许可证)
+- [📊 仓库状态](#-仓库状态)
+- [⭐️ 星星](#star)
+
+---
   
 ## ✨ 效果示例
 
@@ -102,9 +126,9 @@
 > [!TIP]
 > 本项目的相关开发数据 (持续更新中)：
 >
-> 开发时长：累计 24 天（主插件部分）
+> 开发时长：累计 27 天（主插件部分）
 >
-> 累计工时：约 177 小时（主插件部分）
+> 累计工时：约 191 小时（主插件部分）
 >
 > 创建本仓库：累计 3 天，约 22 小时
 >
@@ -116,11 +140,13 @@
 >
 > Temperature：0 或 0.6
 >
-> Tokens Used：323,914,423
+> Tokens Used：362,846,293
 
 ## 🌟 功能特色
 
-- **多场景支持**：已完成对私聊和群聊的初步适配。
+- **多会话支持**:支持同时为多个私聊和群聊提供主动消息服务，每个会话完全独立管理。额外提供5个私聊 + 5个群聊个性化配置槽位，可以设置专属的配置和备注名。
+- **全局配置系统**: 通过 `session_list` 管理更多会话，使用全局配置作为后备方案。
+- **会话完全隔离**: 每个会话拥有独立的状态、计数器、触发器，避免相互干扰。
 - **定时触发**: 基于用户沉默时间，在设定的随机时间范围内自动触发。
 - **自动主动消息**: 插件首次加载时可以按需求自动开始创建主动消息任务，不再需要用户输入来激活。
 - **上下文感知**: 能够回顾历史对话，并根据你设定的"动机"，生成与之前话题相关的回复，而不是生硬的问候。
@@ -238,273 +264,164 @@ AstrBot/
 
 ## 🏗️ 核心架构与开发者说明
 
-本插件采用**多会话架构**，通过创新的双重触发机制，实现了稳定、智能且高度可扩展的主动消息系统。
-
-### 🎯 v1.0.0-beta.2 架构革新
-
-#### **1. 多会话支持架构**
-
-- **私聊模式**：使用 `APScheduler` 定时任务，为每个私聊会话维护独立的调度器。
-- **群聊模式**：采用创新的"沉默倒计时"机制，通过 `asyncio.TimerHandle` 实现轻量级监听。
-- **会话隔离**：每个会话拥有独立的数据空间和配置，互不干扰。
-
-#### **2. 自动主动消息系统（v1.0.0-beta.2 新增）**
-
-**智能自动触发机制**：
-
-- **插件启动检测**：插件加载完成后，自动检查是否需要为启用的会话创建主动消息任务
-- **冲突避免**：如果已存在有效的持久化任务，则不会重复触发，避免任务冲突
-- **消息感知**：一旦收到任何消息，自动触发器立即取消，转为正常交互模式
-
-**自动触发工作流程**：
-
-1. **初始化检测** → 插件启动时为启用的会话设置自动触发计时器
-2. **等待期** → 在配置的等待时间内监听是否有消息活动
-3. **条件判断** → 检查是否满足自动触发条件（无消息且时间到达）
-4. **任务创建** → 创建主动消息任务但不持久化，避免与正常任务冲突
-5. **状态转换** → 收到消息后自动取消自动触发，进入正常交互模式
-
-#### **3. 双重Bot消息检测系统**
-
-为了准确识别Bot自己发送的消息（这对群聊逻辑至关重要），使用了三重检测机制：
-
-- **时间窗口检测**：利用5秒时间窗口捕捉Bot回复。
-- **Source属性检测**：检查消息来源标识。
-- **ID匹配检测**：对比 `self_id` 和 `user_id`
-
-#### **4. 智能事件监听体系**
-
-```python
-@filter.event_message_type(filter.EventMessageType.PRIVATE_MESSAGE, priority=999)
-async def on_private_message(self, event: AstrMessageEvent):
-    # 私聊消息处理逻辑
-
-@filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE, priority=998)
-async def on_group_message(self, event: AstrMessageEvent):
-    # 群聊消息处理逻辑
-
-@filter.after_message_sent()
-async def on_after_message_sent(self, event: AstrMessageEvent):
-    # Bot消息检测逻辑
-```
-
-#### **5. 核心工作流程**
-
-**私聊流程**：
-
-1. **自动触发检测** → 插件启动时设置自动触发器（如启用）。
-2. **消息监听** → 检测用户回复，取消自动触发。
-3. **任务取消** → 取消旧定时任务。
-4. **计数器重置** → 重置未回复计数。
-5. **重新调度** → 设置新的随机时间任务。
-6. **任务执行** → 条件满足后生成并发送主动消息。
-7. **记忆存档** → 使用 `add_message_pair` 保存对话。
-
-**群聊流程**：
-
-1. **自动触发检测** → 插件启动时设置自动触发器（如启用）。
-2. **沉默检测** → 监听群聊消息流，重置沉默倒计时。
-3. **Bot消息识别** → 通过 `after_message_sent` 检测Bot发言。
-4. **倒计时触发** → 沉默时间达到阈值后时触发主动消息的定时任务。
-5. **智能生成** → 基于上下文生成合适的主动消息。
-6. **动态调度** → 根据群聊活跃度调整后续策略。
-
-#### **6. 数据持久化与恢复**
-
-- **异步文件I/O**：使用 `aiofiles` 确保非阻塞操作。
-- **并发安全**：通过 `asyncio.Lock` 保护数据一致性。
-- **智能恢复**：插件重启时自动恢复未完成的任务。
-- **数据隔离**：每个会话数据独立存储，支持多目标。
-- **自动清理**：智能识别并清理过期或无效的任务数据。
-
-#### **7. AstrBot v4.5.7+ 新API兼容**
-
-```python
-# 双API支持，确保兼容性
-try:
-    # 优先使用新API (v4.5.7+)
-    prov_id = await self.context.get_current_chat_provider_id(session_id)
-    llm_response_obj = await self.context.llm_generate(
-        chat_provider_id=prov_id,
-        prompt=final_user_simulation_prompt,
-        contexts=pure_history_messages,
-        system_prompt=original_system_prompt,
-    )
-except:
-    # 回退到传统API
-    provider = self.context.get_using_provider(umo=session_id)
-    llm_response_obj = await provider.text_chat(...)
-```
-
-- 此外还针对新的插件开发文档，对原有的 LLM 调用方式、人格设定管理进行了全面优化。
-
-### 🔧 技术亮点
-
-1. **模块化设计**：每个功能都封装在独立的函数中，便于维护和扩展。
-2. **异常处理**：完善的错误捕获和恢复机制。
-3. **性能优化**：异步操作确保不阻塞主事件循环。
-4. **配置灵活**：支持通过 WebUI 进行详细配置。
-5. **日志友好**：详细的调试信息便于问题排查。
-
 > [!TIP]
-> 本段描述的最近更新时间：2025/11/29，适用于 v1.0.0-beta.6
+> 本段描述的最近更新时间：2025/12/05，适用于 v1.0.0-beta.7
 
 ### 🛠️ 系统架构图
 
+#### 📊 高层架构概览
+
 ```mermaid
 graph TD
-    A[AstrBot 事件系统] --> B{消息类型判断}
-    B -->|私聊消息| C[on_private_message]
-    B -->|群聊消息| D[on_group_message]
-    B -->|Bot消息发送| E[on_after_message_sent]
-
-    C --> F[获取会话配置]
-    D --> F
-    E --> F
-
-    F --> G{配置检查}
-    G -->|配置无效| H[跳过处理]
-    G -->|配置有效| I[进入核心逻辑]
-
-    I --> J{会话类型}
-    J -->|私聊| K[私聊处理流程]
-    J -->|群聊| L[群聊处理流程]
-
-    K --> M[取消旧定时任务]
-    K --> N[重置未回复计数器]
-    K --> O[调度新任务]
+    A["WebUI配置"] --> B["多会话配置系统"]
+    B --> C["个性化槽位<br/>5私聊+5群聊"]
+    B --> D["全局配置<br/>session_list"]
     
-    L --> P[重置沉默倒计时]
-    L --> Q[清理过期数据]
-    L --> R[Bot消息检测]
-
-    O --> S[APScheduler 定时器]
-    R --> T[asyncio.TimerHandle]
-
-    S --> U{任务触发}
-    T --> U
-
-    U --> V[条件检查]
-    V -->|条件不满足| W[重新调度]
-    V -->|条件满足| X[准备LLM请求]
-
-    X --> Y[加载上下文]
-    X --> Z[加载人格设定]
-    X --> A1[构造Prompt]
-
-    Y --> B1[调用LLM]
-    Z --> B1
-    A1 --> B1
-
-    B1 --> C1{API选择}
-    C1 -->|v4.5.7+| D1[context.llm_generate]
-    C1 -->|旧版本| E1[provider.text_chat]
-
-    D1 --> F1[生成回复]
-    E1 --> F1
-
-    F1 --> G1[发送消息]
-    G1 --> H1[TTS处理]
-    G1 --> I1[文本发送]
-
-    H1 --> J1[记忆存档]
-    I1 --> J1
-
-    J1 --> K1[更新计数器]
-    K1 --> L1[数据持久化]
-    L1 --> M1[重新调度]
-
-    M1 --> U
-
-    %% v1.0.0-beta.2 新增: 自动主动消息系统
-    N2[插件初始化] --> O2{检查自动触发配置}
-    O2 -->|启用自动触发| P2[设置自动触发计时器]
-    O2 -->|禁用自动触发| Q2[跳过自动触发]
+    C --> E["会话管理核心"]
+    D --> E
     
-    P2 --> R2[等待配置时间]
-    R2 --> S2{检查是否存在持久化任务}
-    S2 -->|存在有效任务| T2[取消自动触发]
-    S2 -->|不存在任务| U2[创建主动消息任务]
+    E --> F["自动触发系统"]
+    E --> G["消息监听系统"]
     
-    C --> V2[取消自动触发]
-    D --> V2
+    F --> H["任务调度器"]
+    G --> H
     
-    U2 --> O
+    H --> I["消息处理引擎"]
+    I --> J["LLM调用"]
+    I --> K["消息发送"]
     
-    subgraph 自动触发系统
-        N2
-        O2
-        P2
-        Q2
-        R2
-        S2
-        T2
-        U2
-        V2
+    H --> L["状态管理"]
+    L --> M["数据持久化"]
+```
+
+#### 🔧 核心组件详解
+
+```mermaid
+graph LR
+    subgraph "配置获取"
+        Config1["个性化配置<br/>优先级最高"] --> ConfigGet["_get_session_config()"]
+        Config2["全局配置<br/>session_list匹配"] --> ConfigGet
+        Config3["默认配置<br/>后备方案"] --> ConfigGet
     end
+```
 
-    subgraph 数据层
-        N1[session_data.json]
-        O1[asyncio.Lock]
-        P1[aiofiles]
+```mermaid
+graph TD
+    subgraph "触发机制"
+        AutoTrigger["自动触发器<br/>插件启动时设置"] --> CheckTime["检查时间条件"]
+        MsgTrigger["消息触发<br/>实时监听"] --> CancelAuto["取消自动触发"]
+        
+        CheckTime --> CreateTask["创建主动消息任务"]
+        CancelAuto --> ResetCounter["重置未回复计数器"]
     end
+```
 
-    L1 --> N1
-    O1 --> L1
-    P1 --> L1
+```mermaid
+graph TD
+    subgraph "调度系统"
+        PrivateChat["私聊处理"] --> APScheduler["APScheduler<br/>定时任务"]
+        GroupChat["群聊处理"] --> SilenceTimer["沉默倒计时+APScheduler结合<br/>asyncio.TimerHandle"]
+        
+        APScheduler --> TaskPersist["任务持久化"]
+        SilenceTimer --> TaskPersist
+    end
+```
 
-    style A fill:#e1f5fe
-    style B fill:#fff3e0
-    style F fill:#f3e5f5
-    style J fill:#e8f5e9
-    style U fill:#fff9c4
-    style C1 fill:#fce4ec
-    style N1 fill:#e3f2fd
-    style N2 fill:#ffebee
-    style O2 fill:#ffebee
-    style P2 fill:#ffebee
+#### 🎯 基本数据流向
+
+```mermaid
+graph LR
+    Start["插件启动"] --> LoadConfig["加载多会话配置"]
+    LoadConfig --> SetupTriggers["为每个会话设置触发器"]
+    SetupTriggers --> WaitEvent["等待消息事件"]
+    
+    WaitEvent --> MsgReceived{"收到消息?"}
+    MsgReceived -->|是| CancelTriggers["取消对应会话触发器"]
+    MsgReceived -->|否| CheckSilence["检查沉默时间"]
+    
+    CancelTriggers --> ResetStates["重置会话状态"]
+    CheckSilence --> CreateProactive["创建主动消息任务"]
+    
+    ResetStates --> ScheduleNext["重新调度任务"]
+    CreateProactive --> SendMessage["发送主动消息"]
 ```
 
 ### 🔍 架构图说明
 
-**事件驱动层**：
+- **分层配置系统**：WebUI配置 → 多会话配置系统 → 个性化槽位/全局配置。
+- **统一会话管理**：所有配置通过 `_get_session_config()` 统一入口处理。
+- **双触发机制**：自动触发系统 + 消息监听系统协调工作。
+- **统一调度**：任务调度器管理私聊定时任务和群聊沉默倒计时。
+- **完整消息处理**：从上下文准备到LLM调用再到消息发送的完整流程。
+- **状态隔离管理**：每个会话拥有独立的状态空间，避免相互干扰。
+- **数据持久化**：支持插件重启后的任务恢复和状态恢复。
 
-- 通过 AstrBot 的事件系统接收三种主要消息类型。
-- 每种消息类型都有专门的处理函数。
-- 新增自动触发取消机制，确保消息接收后自动转换模式。
+1.**配置获取策略**
 
-**自动触发系统**（v1.0.0-beta.2 新增）：
+- **个性化配置槽位**：5个私聊 + 5个群聊独立槽位，支持完全个性化配置。
+- **全局配置系统**：通过 `session_list` 管理更多会话，使用统一配置。
+- **智能优先级**：个性化配置 > 全局配置 > 默认配置
 
-- **插件启动检测**：初始化时为启用的会话设置自动触发计时器。
-- **智能冲突避免**：检查是否存在有效的持久化任务，避免重复创建。
-- **消息感知机制**：任何消息接收都会立即取消自动触发，转为正常交互。
-- **一次性触发**：自动触发只执行一次，后续转为正常的随机间隔调度。
-- **非持久化**：不会像正常流程中创建的主动消息被持久化保存。
+2.**触发机制协调**
 
-**配置管理层**：
+- **自动触发**：插件启动时为所有配置会话设置触发器。
+- **消息监听**：实时监听所有配置会话的消息活动。
+- **智能取消**：收到消息后自动取消对应会话的触发器。
 
-- 统一的配置检查确保插件只对目标会话生效。
-- 支持多会话的独立配置管理。
-- 新增自动触发配置验证，确保参数合理性。
+3.**调度系统差异**
 
-**核心逻辑层**：
+- **私聊**：使用 APScheduler 定时任务，支持精确时间控制。
+- **群聊**：使用 asyncio 倒计时机制，监控群聊沉默状态。
+- **任务恢复**：插件重启后自动恢复所有未完成任务。
 
-- **私聊流程**：使用 `APScheduler` 进行精确的定时调度，支持自动触发和正常交互两种模式。
-- **群聊流程**：采用创新的沉默倒计时机制，结合自动触发和活跃度检测。
-- 两种模式都具备完整的异常处理和数据一致性保障。
+4.**数据流向**
 
-**AI 交互层**：
+```text
+插件启动 → 加载多会话配置 → 为每个会话设置触发器 → 等待消息事件
+    ↓
+收到消息？ → 是：取消对应会话触发器 + 重置状态 → 安排下次任务
+    ↓
+            → 否：检查沉默时间 → 创建主动消息 → 发送消息
+```
 
-- 双 API 支持确保兼容性（v4.5.7+ 新 API 和传统 API）。
-- 完整的上下文加载和人格设定支持。
-- 智能的 Prompt 工程实现动机注入。
+#### 🔧 关键技术实现
 
-**数据持久化层**：
+1.**配置获取策略** (`_get_session_config()`)
 
-- 异步文件 I/O 确保性能。
-- 锁机制保证并发安全。
-- 智能恢复机制支持插件重启。
-- 自动清理无效数据，保持数据一致性。
+```python
+# 配置优先级：个性化槽位 → 全局session_list → 返回None
+1. 检查个性化配置槽位   #（5个私聊 + 5个群聊）
+2. 检查全局配置的session_list匹配
+3. 返回None表示未找到有效配置
+```
+
+2.**会话ID精确匹配**
+
+```python
+# 优化了ID匹配方法，避免错误匹配
+existing_session_id.endswith(f":{message_type}:{target_id}")
+```
+
+3.**状态隔离机制**
+
+- `last_message_times`: 记录每个会话的最后消息时间（用于自动触发）。
+- `session_temp_state`: 存储群聊的临时状态（用于Bot消息检测）。
+- `auto_trigger_timers`: 管理每个会话的自动触发计时器。
+- `unanswered_count`: 每个会话独立的未回复计数器。
+
+4.**数据持久化策略**
+
+- 只持久化插件启动后的消息时间（避免历史消息干扰）。
+- 会话数据隔离存储，支持重启恢复。
+- 定期清理无效和过期数据。
+
+#### 🚀 性能优化亮点
+
+1. **内存管理**：定期清理过期会话状态，防止内存泄漏。
+2. **日志优化**：避免重复日志，使用会话备注提高可读性。
+3. **错误处理**：完善的异常捕获和恢复机制。
+4. **并发安全**：使用异步锁确保数据操作的原子性。
+5. **精确匹配**：修复了会话ID匹配逻辑，避免错误触发。
 
 ---
 
@@ -512,9 +429,10 @@ graph TD
 
 ### 📋 版本表格
 
-| 版本 | 状态 | 重要说明 | 推荐的 AstrBot 版本 |
+| 版本 | 状态 | 基本说明 | 推荐AstrBot版本 |
 |------|------|----------|------------------|
-| **v1.0.0-beta.6** | ✅ 当前版本 | 进一步优化代码质量，多会话前最后一个版本 | v4.5.7+ |
+| **v1.0.0-beta.7** | ✅ 当前版本 | 🎉 **重大更新**: 正式添加完整的多会话支持 | v4.5.7+ |
+| **v1.0.0-beta.6** | ✅ 稳定版本 | 进一步优化代码质量，多会话前最后一个版本 | v4.5.7+ |
 | **v1.0.0-beta.5** | ❌ 失败版本 | 尝试重构为模块化架构但失败，已分到其他开发分支 | v4.5.7+ |
 | **v1.0.0-beta.4** | ✅ 稳定版本 | 修复潜在的多并发场景下的竞态条件问题，优化日志过滤 | v4.5.7+ |
 | **v1.0.0-beta.3** | ✅ 基本稳定 | **热修复**: 修复新会话无法创建主动消息的问题 | v4.5.7+ |
@@ -530,6 +448,8 @@ graph TD
 
 > [!IMPORTANT]
 > **v1.0.0-beta.1+ 升级注意**：由于配置格式大幅重构，**无法继承旧配置**，升级后需要重新配置。请务必保存好自定义的 Prompt 设置。
+
+**v1.0.0-beta.2-beta.6**：存在自动触发计时器没有被正确清理的遗留bug，已在 v1.0.0-beta.7 中修复。
 
 **v0.9.97 及以下版本特性**：
 
@@ -556,8 +476,8 @@ graph TD
 ## 🚧 最新版本的已知限制
 
 - **分段回复**: 当前版本未适配 AstrBot 提供的分段回复功能。 ([#2](https://github.com/DBJD-CR/astrbot_plugin_proactive_chat/issues/2))
-- **单一目标**: 目前的主动消息插件仅支持单个私聊与群聊对象。
-- **Prompt 依赖**: 主动消息的效果，高度依赖于用户在 `proactive_prompt` 中提供的创造力和引导。
+- **配置复杂度与限制**: 初次进行多会话配置时略显繁琐，会话数量超出预设槽位后部分会话无法进行个性化配置，需要进行取舍。
+- **Prompt 依赖**: 主动消息的效果，高度依赖于用户在 `proactive_prompt` 中提供的创造力和引导。也依赖于私聊/群聊中是否有足够丰富的上下文和 LLM 能力。
 
 ---
 
@@ -621,18 +541,21 @@ graph TD
 
 - **A**: 在 AstrBot 控制台可以看到插件的详细运行日志，包括任务创建、触发、取消等信息。
 
+> [!CAUTION]
+> 由于 AstrBot 的 Bug[#3903](https://github.com/AstrBotDevs/AstrBot/issues/3903)，AstrBot WebUI 控制台输出的日志在本插件的使用场景下**可能会**出现显示问题，丢失部分日志。如果要在控制台中查看完整的插件日志记录，请重新刷新 WebUI 控制台或直接查看 CMD 窗口。
+
 **Q: 日志中出现错误信息怎么办？**
 
 - **A**: 将完整的错误日志复制下来，包括错误类型和堆栈信息，可以在 QQ 群（1033089808）中寻求帮助，或在 GitHub 提交 Issue。
 
 ### ⚠️ AstrBot 限流机制影响
 
-**Q: 插件突然无法监听群聊消息，看不到"群聊活跃，已取消任务"的日志？**
+**Q: 插件突然无法监听群聊消息，缺失相关的任务日志？**
 
-- **A**: 这通常是 AstrBot 的限流机制导致的。当群聊消息频率过高时，AstrBot 会暂停消息处理流水线，导致插件无法接收消息事件。
+- **A**: 这可能是 AstrBot 的限流机制导致的。当群聊消息频率过高时，AstrBot 会暂停消息处理流水线，导致插件无法接收消息事件。
   
   **限流影响的典型表现**：
-  - 缺少"群聊活跃喵，已取消会话...的预定主动消息任务喵"关键日志。
+  - 缺少关键日志。
   - 用户消息后沉默倒计时不会重置。
   - 主动消息任务异常执行（在群聊活跃时误判为沉默）。
   - 日志中出现"会话 XXX 被限流。根据限流策略，此会话处理将被暂停 XXXXX 秒"。
@@ -655,7 +578,7 @@ graph TD
 
 **Q: 如何确认是限流问题而不是插件bug？**
 
-- **A**: 检查 AstrBot 主日志中是否有类似这样的信息：、
+- **A**: 检查 AstrBot 主日志中是否有类似这样的信息：
 
   ```log
   [Core] [INFO] [rate_limit_check.stage:74]: 会话 123456789 被限流。根据限流策略，此会话处理将被暂停 86291.74 秒。
@@ -703,13 +626,12 @@ PS: 由于我个人本地的测试环境有限，我们正在邀请用户来测�
 
 ## 📈 未来开发路线
 
-- [x] **✅ [已完成] 上下文感知不完整**: 插件主动生成并发送的内容未包含在 AstrBot 的存储范围内，导致消息内容效果不理想。
-- [ ] **🟡 [重要] 多私聊与多群聊支持**: 扩展当前的逻辑，使其能够同时为多个不同的私聊与群聊提供主动消息服务，数据相互隔离，并且每个对话都能独立管理配置。
+- [x] **✅ [已完成] 多私聊与多群聊支持**: 扩展当前的逻辑，使其能够同时为多个不同的私聊与群聊提供主动消息服务，数据相互隔离，并且每个对话都能独立管理配置。
 - [x] **✅ [已完成] 持久化会话**：让 Bot 拥有跨越程序重启的长期数据。即使程序重启，也能加载之前的数据，在之前约定的时间发起主动消息。
 - [x] **✅ [已完成] 增加"未回复次数上限"**: 防止 Bot 在用户长期不在线的情况下，进行无意义的"骚扰"，提升插件的"情商"。
 - [x] **✅ [已完成] 增加插件的 TTS 开关**: 提升插件的易用性。
 - [x] **✅ [已完成] 增加时间感知能力**: 让 Bot 在发起主动消息时也能正确感知当前时间。
-- [x] **🔵 [有新想法] 自动主动消息**: 解决插件首次加载后需要手动激活的问题，优化用户体验。
+- [x] **✅ [已完成] 自动主动消息**: 解决插件首次加载后需要手动激活的问题，优化用户体验。
 - [ ] **🟢 [计划中] 分段回复功能**: 因为想要这个功能的人有点多，所以还是给提上日程吧。
 - [ ] **🔵 [有新想法] 定时任务提醒**: 用自然语言来设定一个定时任务，并且能做出符合人设的回应。
 - [ ] **🔵 [有新想法] 额外的主动消息任务**: 增设更多的主动消息提示词槽位。来灵活区分场景和时间，带来更丰富的主动消息内容。（可以和`定时任务提醒`的设计融合）
@@ -725,6 +647,7 @@ PS: 由于我个人本地的测试环境有限，我们正在邀请用户来测�
 - **[KouriChat](https://github.com/KouriChat/KouriChat)**: 本插件的灵感来源，旨在复刻其主动消息的功能与效果。也是我接触类似此类项目的"引路人"。
 - **[LingChat](https://github.com/SlimeBoyOwO/LingChat)**: 一个非常可爱的聊天陪伴助手，也是支撑我开发本插件的最大动力。想让灵灵接入更多的平台——我要给她完整的一生！
 - **[Conversa](https://github.com/Luna-channel/astrbot_plugin_Conversa)**: 与本插件功能高度相似，且指令功能更丰富。
+- **@Roooodney**：带我入坑 AstrBot 的群u ~
 
 ## 📞 联系我们
 
@@ -737,7 +660,7 @@ PS: 由于我个人本地的测试环境有限，我们正在邀请用户来测�
 
 ## 🤝 贡献
 
-欢迎提交 [Issue](https://github.com/DBJD-CR/astrbot_plugin_proactive_chat/issues) 和 [Pull Request](https://github.com/DBJD-CR/astrbot_plugin_proactive_chat/pulls) 来改进这个插件！经历了百个版本的迭代，它终于达到了一个稳定且能用的状态，但依然有很大的提升空间。
+欢迎提交 [Issue](https://github.com/DBJD-CR/astrbot_plugin_proactive_chat/issues) 和 [Pull Request](https://github.com/DBJD-CR/astrbot_plugin_proactive_chat/pulls) 来改进这个插件！经历了一百多个版本的迭代，它终于达到了一个稳定且能用的状态，但依然有很大的提升空间。
 
 PS：求好心人施舍一点 Issue 与 PR 吧（）
 
@@ -749,6 +672,6 @@ PS：求好心人施舍一点 Issue 与 PR 吧（）
 
 ![Alt](https://repobeats.axiom.co/api/embed/0aeb963734b007c597e3d98009e311318b8f4f1e.svg "Repobeats analytics image")
 
-## ⭐️ 星星
+## <span id="star">⭐️ 星星</span>
 
 [![Star History Chart](https://api.star-history.com/svg?repos=DBJD-CR/astrbot_plugin_proactive_chat&type=Date)](https://www.star-history.com/#DBJD-CR/astrbot_plugin_proactive_chat&Date)
