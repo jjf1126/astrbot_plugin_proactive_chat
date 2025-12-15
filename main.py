@@ -858,9 +858,9 @@ class ProactiveChatPlugin(star.Star):
         await self._setup_auto_trigger(session_id, silent=True)
         return 1
 
-    def _get_session_config(self, umo: str) -> dict | None:
+    def _get_session_config(self, session_id: str) -> dict | None:
         """
-        根据统一消息来源(umo)获取对应的会话配置。
+        根据会话ID(session_id)获取对应的会话配置。
 
         支持多会话配置，先检查个性化配置，再检查全局配置。
 
@@ -871,7 +871,7 @@ class ProactiveChatPlugin(star.Star):
 
         返回值：配置字典（如果找到且启用）或None（如果未找到或禁用）
         """
-        parsed = self._parse_session_id(umo)
+        parsed = self._parse_session_id(session_id)
         if not parsed:
             return None
 
@@ -880,13 +880,13 @@ class ProactiveChatPlugin(star.Star):
 
         # 根据消息类型分别处理
         if message_type == "FriendMessage":
-            return self._get_private_session_config(umo, target_id)
+            return self._get_private_session_config(session_id, target_id)
         elif message_type == "GroupMessage":
-            return self._get_group_session_config(umo, target_id)
+            return self._get_group_session_config(session_id, target_id)
 
         return None
 
-    def _get_private_session_config(self, umo: str, target_id: str) -> dict | None:
+    def _get_private_session_config(self, session_id: str, target_id: str) -> dict | None:
         """获取私聊会话配置"""
         # 1. 检查个性化配置槽位
         private_sessions = self.config.get("private_sessions", {})
@@ -923,7 +923,7 @@ class ProactiveChatPlugin(star.Star):
 
         return None
 
-    def _get_group_session_config(self, umo: str, target_id: str) -> dict | None:
+    def _get_group_session_config(self, session_id: str, target_id: str) -> dict | None:
         """获取群聊会话配置"""
         # 1. 检查个性化配置槽位
         group_sessions = self.config.get("group_sessions", {})
