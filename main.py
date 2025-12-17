@@ -81,6 +81,9 @@ class ProactiveChatPlugin(star.Star):
         # 用于控制相关日志只打印一次
         self.first_message_logged: set[str] = set()  # 记录已经打印过首次消息日志的会话
 
+        # 用于清理过期会话状态的计数器
+        self._cleanup_counter = 0
+
         logger.info("[主动消息] 插件实例已创建喵。")
 
     def _parse_session_id(self, session_id: str) -> tuple[str, str, str] | None:
@@ -88,12 +91,12 @@ class ProactiveChatPlugin(star.Star):
         解析会话ID，返回 (platform, message_type, target_id)。
         如果解析失败，返回 None。
         """
-        try:
-            parts = session_id.split(":")
-            if len(parts) >= 3:
-                return parts[0], parts[1], parts[-1]
-        except Exception:
-            pass
+        if not isinstance(session_id, str):
+            return None
+
+        parts = session_id.split(":")
+        if len(parts) >= 3:
+            return parts[0], parts[1], parts[-1]
         return None
 
     def _get_session_log_str(self, session_id: str, session_config: dict = None) -> str:
@@ -817,7 +820,8 @@ class ProactiveChatPlugin(star.Star):
         # 检查是否已经有持久化的主动消息任务
         has_existing_task = False
         current_time = time.time()
-        for session_id, session_info in self.session_data.items():
+        # 使用 list() 创建副本以避免并发迭代时字典大小改变的风险
+        for session_id, session_info in list(self.session_data.items()):
             if session_info.get("next_trigger_time") and session_id.endswith(
                 f":{message_type}:{target_id}"
             ):
@@ -886,7 +890,9 @@ class ProactiveChatPlugin(star.Star):
 
         return None
 
-    def _get_private_session_config(self, session_id: str, target_id: str) -> dict | None:
+    def _get_private_session_config(
+        self, session_id: str, target_id: str
+    ) -> dict | None:
         """获取私聊会话配置"""
         # 1. 检查个性化配置槽位
         private_sessions = self.config.get("private_sessions", {})
@@ -1292,12 +1298,7 @@ class ProactiveChatPlugin(star.Star):
     @filter.after_message_sent()
     async def on_after_message_sent(self, event: AstrMessageEvent):
         """
-        通过多重检测机制，监听消息发送后事件，识别Bot自己发送的消息：
-        1. 时间窗口检测：Bot回复通常在用户消息5秒内
-        2. source属性检测：检查消息来源标识
-        3. ID匹配检测：对比self_id和user_id
-
-        检测到Bot消息后，会重置群聊沉默倒计时，确保时序正确性。
+        监听消息发送后事件，识别Bot自己发送的消息，用于重置群聊沉默倒计时。
         """
         session_id = event.unified_msg_origin
 
@@ -1305,50 +1306,25 @@ class ProactiveChatPlugin(star.Star):
         if "group" not in session_id.lower():
             return
 
-        is_bot_message = False
         current_time = time.time()
 
         # 定期清理过期的会话状态，防止内存泄漏
         # 每10次调用清理一次
-        if hasattr(self, "_cleanup_counter"):
-            self._cleanup_counter += 1
-        else:
-            self._cleanup_counter = 1
+        self._cleanup_counter += 1
 
         if self._cleanup_counter % 10 == 0:
             self._cleanup_expired_session_states(current_time)
 
         try:
-            # 核心检测逻辑1: 时间窗口检测
-            session_state = self.session_temp_state.get(session_id, {})
-            last_user_time = session_state.get("last_user_time", 0)
-            time_since_user = current_time - last_user_time
-            if (
-                last_user_time > 0 and time_since_user < 5.0  # 5秒时间窗口
-            ):
-                is_bot_message = True
-
-            # 核心检测逻辑2: source属性检测
-            elif hasattr(event, "source") and event.source:
-                source = str(event.source).lower()
-                if source in ["self", "bot", "assistant"]:
-                    is_bot_message = True
-
-            # 核心检测逻辑3: 简单的ID匹配
-            elif hasattr(event, "self_id") and hasattr(event, "user_id"):
-                if str(event.self_id) == str(event.user_id):
-                    is_bot_message = True
-
-            if is_bot_message:
-                # 重置沉默倒计时
-                await self._reset_group_silence_timer(session_id)
-                # 清理会话状态
-                if session_id in self.session_temp_state:
-                    del self.session_temp_state[session_id]
+            # 重置沉默倒计时
+            await self._reset_group_silence_timer(session_id)
+            # 清理会话状态
+            if session_id in self.session_temp_state:
+                del self.session_temp_state[session_id]
 
         except Exception as e:
             logger.error(
-                f"[主动消息] {self._get_session_log_str(session_id)} 的 after_message_sent 检测异常喵: {e}"
+                f"[主动消息] {self._get_session_log_str(session_id)} 的 after_message_sent 处理异常喵: {e}"
             )
 
     async def _reset_group_silence_timer(self, session_id: str):
