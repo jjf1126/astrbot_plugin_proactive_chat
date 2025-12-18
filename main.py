@@ -89,14 +89,37 @@ class ProactiveChatPlugin(star.Star):
     def _parse_session_id(self, session_id: str) -> tuple[str, str, str] | None:
         """
         解析会话ID，返回 (platform, message_type, target_id)。
-        如果解析失败，返回 None。
+        支持处理其他非标准字段等复杂情况（如 Satori 等平台的非标准格式）。
         """
         if not isinstance(session_id, str):
             return None
 
+        # 1. 尝试基于标准消息类型进行分割
+        # 常见的消息类型列表，可根据需要扩展
+        known_types = ["FriendMessage", "GroupMessage", "PrivateMessage", "GuildMessage"]
+        
+        for msg_type in known_types:
+            # 查找类型标识符的位置，格式应该是 ...:MsgType:...
+            search_pattern = f":{msg_type}:"
+            idx = session_id.find(search_pattern)
+            
+            if idx != -1:
+                # 找到了类型锚点
+                platform = session_id[:idx]
+                # 跳过锚点长度，剩下的就是 target_id
+                target_id = session_id[idx + len(search_pattern):]
+                return platform, msg_type, target_id
+
+        # 2. 如果没找到标准类型，尝试简单的 3 段式解析
         parts = session_id.split(":")
-        if len(parts) >= 3:
-            return parts[0], parts[1], parts[-1]
+        if len(parts) == 3:
+            return parts[0], parts[1], parts[2]
+            
+        # 3. 尝试处理包含冒号的 platform 或复杂 ID
+        # 这种情况下，我们假设最后一部分是 target_id，倒数第二部分是 type
+        if len(parts) > 3:
+            return ":".join(parts[:-2]), parts[-2], parts[-1]
+            
         return None
 
     def _get_session_log_str(self, session_id: str, session_config: dict = None) -> str:
@@ -1712,7 +1735,25 @@ class ProactiveChatPlugin(star.Star):
                 f"[主动消息] 开始生成第 {unanswered_count + 1} 次主动消息喵，当前未回复次数: {unanswered_count} 次喵。"
             )
 
-            request_package = await self._prepare_llm_request(session_id)
+            # 增加对非标准 session_id 的容错处理
+            # 某些平台（如 Satori）可能生成特殊格式的 ID，导致 AstrBot 核心 API 解包失败
+            try:
+                request_package = await self._prepare_llm_request(session_id)
+            except ValueError as e:
+                # 捕获 "too many values to unpack" 错误
+                if "too many values" in str(e) or "expected 3" in str(e):
+                    logger.warning(f"[主动消息] 检测到非标准 session_id ({session_id}) 导致核心解析错误，尝试使用兼容模式重试喵。")
+                    parsed = self._parse_session_id(session_id)
+                    if parsed:
+                        # 重新构建标准的 3 段式 ID 进行重试
+                        standard_session_id = f"{parsed[0]}:{parsed[1]}:{parsed[2]}"
+                        logger.info(f"[主动消息] 兼容模式标准化 ID: {standard_session_id}")
+                        request_package = await self._prepare_llm_request(standard_session_id)
+                    else:
+                        raise e
+                else:
+                    raise e
+
             if not request_package:
                 await self._schedule_next_chat_and_save(session_id)
                 return
