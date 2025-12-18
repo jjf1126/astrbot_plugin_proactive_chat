@@ -1,5 +1,5 @@
 # 文件名: main.py (位于 data/plugins/astrbot_plugin_proactive_chat/ 目录下)
-# 版本: v1.0.0 (正式版)
+# 版本: v1.0.1 (正式版)
 
 # 导入标准库
 import asyncio
@@ -96,30 +96,44 @@ class ProactiveChatPlugin(star.Star):
 
         # 1. 尝试基于标准消息类型进行分割
         # 常见的消息类型列表，可根据需要扩展
-        known_types = ["FriendMessage", "GroupMessage", "PrivateMessage", "GuildMessage"]
-        
+        known_types = [
+            "FriendMessage",
+            "GroupMessage",
+            "PrivateMessage",
+            "GuildMessage",
+        ]
+
         for msg_type in known_types:
             # 查找类型标识符的位置，格式应该是 ...:MsgType:...
             search_pattern = f":{msg_type}:"
             idx = session_id.find(search_pattern)
-            
+
             if idx != -1:
                 # 找到了类型锚点
                 platform = session_id[:idx]
-                # 跳过锚点长度，剩下的就是 target_id
-                target_id = session_id[idx + len(search_pattern):]
-                return platform, msg_type, target_id
+                # 获取锚点之后的部分
+                after_type = session_id[idx + len(search_pattern) :]
+
+                # 处理 Satori 等 4 段式 ID: Platform:MsgType:SubType:TargetID
+                # 如果剩余部分还包含冒号，我们假设最后一部分才是真正的 TargetID
+                if ":" in after_type:
+                    # 取最后一个冒号后的部分作为 TargetID，丢弃中间的 SubType
+                    target_id = after_type.split(":")[-1]
+                    return platform, msg_type, target_id
+                else:
+                    target_id = after_type
+                    return platform, msg_type, target_id
 
         # 2. 如果没找到标准类型，尝试简单的 3 段式解析
         parts = session_id.split(":")
         if len(parts) == 3:
             return parts[0], parts[1], parts[2]
-            
+
         # 3. 尝试处理包含冒号的 platform 或复杂 ID
         # 这种情况下，我们假设最后一部分是 target_id，倒数第二部分是 type
         if len(parts) > 3:
             return ":".join(parts[:-2]), parts[-2], parts[-1]
-            
+
         return None
 
     def _get_session_log_str(self, session_id: str, session_config: dict = None) -> str:
@@ -1471,9 +1485,27 @@ class ProactiveChatPlugin(star.Star):
             conv_id = await self.context.conversation_manager.get_curr_conversation_id(
                 session_id
             )
+
+            # 如果是新会话，主动创建对话
+            if not conv_id:
+                logger.info(
+                    f"[主动消息] {self._get_session_log_str(session_id)} 是新会话，尝试创建新对话喵。"
+                )
+                try:
+                    conv_id = await self.context.conversation_manager.new_conversation(
+                        session_id
+                    )
+                    logger.info(f"[主动消息] 新对话创建成功喵，ID: {conv_id}")
+                except ValueError:
+                    # 让 ValueError 冒泡，以便外层 check_and_chat 可以捕获并进行非标准 ID 的兼容性处理
+                    raise
+                except Exception as e:
+                    logger.error(f"[主动消息] 创建新对话失败喵: {e}", exc_info=True)
+                    return None
+
             if not conv_id:
                 logger.warning(
-                    f"[主动消息] 无法找到 {self._get_session_log_str(session_id)} 的当前对话ID，可能是新会话，跳过本次任务喵。"
+                    f"[主动消息] 无法获取或创建 {self._get_session_log_str(session_id)} 的对话ID，跳过本次任务喵。"
                 )
                 return None
 
@@ -1742,13 +1774,19 @@ class ProactiveChatPlugin(star.Star):
             except ValueError as e:
                 # 捕获 "too many values to unpack" 错误
                 if "too many values" in str(e) or "expected 3" in str(e):
-                    logger.warning(f"[主动消息] 检测到非标准 session_id ({session_id}) 导致核心解析错误，尝试使用兼容模式重试喵。")
+                    logger.warning(
+                        f"[主动消息] 检测到非标准 session_id ({session_id}) 导致核心解析错误，尝试使用兼容模式重试喵。"
+                    )
                     parsed = self._parse_session_id(session_id)
                     if parsed:
                         # 重新构建标准的 3 段式 ID 进行重试
                         standard_session_id = f"{parsed[0]}:{parsed[1]}:{parsed[2]}"
-                        logger.info(f"[主动消息] 兼容模式标准化 ID: {standard_session_id}")
-                        request_package = await self._prepare_llm_request(standard_session_id)
+                        logger.info(
+                            f"[主动消息] 兼容模式标准化 ID: {standard_session_id}"
+                        )
+                        request_package = await self._prepare_llm_request(
+                            standard_session_id
+                        )
                     else:
                         raise e
                 else:
