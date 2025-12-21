@@ -1470,6 +1470,31 @@ class ProactiveChatPlugin(star.Star):
 
         return True
 
+    def _sanitize_history_content(self, history: list) -> list:
+        """
+        清洗历史消息内容，将列表格式的内容转换为字符串。
+        修复 Gemini Source 的 ValidationError 问题。
+        """
+        sanitized_history = []
+        for msg in history:
+            if not isinstance(msg, dict):
+                sanitized_history.append(msg)
+                continue
+
+            new_msg = msg.copy()
+            content = msg.get("content")
+
+            if isinstance(content, list):
+                # 拼接所有 text 类型的片段
+                text_content = ""
+                for segment in content:
+                    if isinstance(segment, dict) and segment.get("type") == "text":
+                        text_content += segment.get("text", "")
+                new_msg["content"] = text_content
+
+            sanitized_history.append(new_msg)
+        return sanitized_history
+
     async def _prepare_llm_request(self, session_id: str) -> dict | None:
         """
         准备 LLM 请求所需的上下文、人格和最终 Prompt。
@@ -1602,7 +1627,25 @@ class ProactiveChatPlugin(star.Star):
         if tts_conf.get("enable_tts", True):
             try:
                 logger.info("[主动消息] 尝试进行手动TTS喵。")
-                tts_provider = self.context.get_using_tts_provider(umo=session_id)
+
+                # 兼容性处理：尝试获取 TTS Provider
+                tts_provider = None
+                try:
+                    tts_provider = self.context.get_using_tts_provider(umo=session_id)
+                except ValueError as e:
+                    if "too many values" in str(e) or "expected 3" in str(e):
+                        logger.warning(
+                            "[主动消息] TTS检测到非标准 session_id，尝试使用兼容模式重试喵。"
+                        )
+                        parsed = self._parse_session_id(session_id)
+                        if parsed:
+                            standard_session_id = f"{parsed[0]}:{parsed[1]}:{parsed[2]}"
+                            tts_provider = self.context.get_using_tts_provider(
+                                umo=standard_session_id
+                            )
+                    else:
+                        raise e
+
                 if tts_provider:
                     audio_path = await tts_provider.get_audio(text)
                     if audio_path:
@@ -1826,13 +1869,41 @@ class ProactiveChatPlugin(star.Star):
                     session_id
                 )
 
-                # 使用统一的llm_generate接口调用LLM
-                llm_response_obj = await self.context.llm_generate(
-                    chat_provider_id=provider_id,
-                    prompt=final_user_simulation_prompt,
-                    contexts=pure_history_messages,
-                    system_prompt=original_system_prompt,
-                )
+                # 尝试调用 LLM，添加针对 Gemini 格式错误的重试机制
+                try:
+                    # 使用统一的llm_generate接口调用LLM
+                    llm_response_obj = await self.context.llm_generate(
+                        chat_provider_id=provider_id,
+                        prompt=final_user_simulation_prompt,
+                        contexts=pure_history_messages,
+                        system_prompt=original_system_prompt,
+                    )
+                except Exception as e:
+                    # 检查是否为 Gemini 的 ValidationError
+                    # 错误特征：ValidationError, Input should be a valid string
+                    if (
+                        "validation error" in str(e).lower()
+                        and "valid string" in str(e).lower()
+                    ):
+                        logger.warning(
+                            "[主动消息] 检测到 Gemini 历史记录格式兼容性问题，尝试清洗数据后重试喵。"
+                        )
+                        # 清洗历史消息
+                        pure_history_messages = self._sanitize_history_content(
+                            pure_history_messages
+                        )
+                        # 使用清洗后的数据重试
+                        llm_response_obj = await self.context.llm_generate(
+                            chat_provider_id=provider_id,
+                            prompt=final_user_simulation_prompt,
+                            contexts=pure_history_messages,
+                            system_prompt=original_system_prompt,
+                        )
+                        logger.info("[主动消息] 数据清洗后重试成功喵。")
+                    else:
+                        # 其他错误直接抛出，进入外层异常处理
+                        raise e
+
                 logger.info("[主动消息] 使用新API调用LLM成功喵。")
 
             except Exception as llm_error:
