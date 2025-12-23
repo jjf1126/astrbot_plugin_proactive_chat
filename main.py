@@ -1,10 +1,12 @@
 # 文件名: main.py (位于 data/plugins/astrbot_plugin_proactive_chat/ 目录下)
-# 版本: v1.0.1 (正式版)
+# 版本: v1.1.0 (分段回复)
 
 # 导入标准库
 import asyncio
 import json
+import math
 import random
+import re
 import time
 import traceback
 import zoneinfo
@@ -671,16 +673,19 @@ class ProactiveChatPlugin(star.Star):
             "session_5",
         ]:
             session_config = private_sessions.get(session_key, {})
-            if session_config.get("enable", False) and session_config.get("session_id"):
+            if session_config.get("session_id"):
                 target_id = session_config["session_id"]
+                # 无论是否启用，只要在个性化配置中存在，就标记为已处理
+                # 防止回退到全局配置
                 if target_id not in processed_sessions:
-                    session_name = session_config.get("session_name", "")
-                    auto_trigger_count += (
-                        await self._setup_auto_trigger_for_session_config(
-                            session_config, "FriendMessage", target_id, session_name
-                        )
-                    )
                     processed_sessions.add(target_id)
+                    if session_config.get("enable", False):
+                        session_name = session_config.get("session_name", "")
+                        auto_trigger_count += (
+                            await self._setup_auto_trigger_for_session_config(
+                                session_config, "FriendMessage", target_id, session_name
+                            )
+                        )
 
         # 2. 检查群聊个性化配置槽位（优先级最高）
         group_sessions = self.config.get("group_sessions", {})
@@ -692,16 +697,18 @@ class ProactiveChatPlugin(star.Star):
             "session_5",
         ]:
             session_config = group_sessions.get(session_key, {})
-            if session_config.get("enable", False) and session_config.get("session_id"):
+            if session_config.get("session_id"):
                 target_id = session_config["session_id"]
+                # 无论是否启用，只要在个性化配置中存在，就标记为已处理
                 if target_id not in processed_sessions:
-                    session_name = session_config.get("session_name", "")
-                    auto_trigger_count += (
-                        await self._setup_auto_trigger_for_session_config(
-                            session_config, "GroupMessage", target_id, session_name
-                        )
-                    )
                     processed_sessions.add(target_id)
+                    if session_config.get("enable", False):
+                        session_name = session_config.get("session_name", "")
+                        auto_trigger_count += (
+                            await self._setup_auto_trigger_for_session_config(
+                                session_config, "GroupMessage", target_id, session_name
+                            )
+                        )
 
         # 3. 检查全局配置的session_list（只处理未在个性化配置中的会话）
         private_settings = self.config.get("private_settings", {})
@@ -941,15 +948,19 @@ class ProactiveChatPlugin(star.Star):
             "session_5",
         ]:
             session_config = private_sessions.get(session_key, {})
-            if (
-                session_config.get("enable", False)
-                and session_config.get("session_id", "") == target_id
-            ):
-                # 添加会话名称到配置中，用于日志显示
-                config_copy = session_config.copy()
-                config_copy["_session_name"] = session_config.get("session_name", "")
-                config_copy["_session_type"] = "private"
-                return config_copy
+            # 只要 session_id 匹配，就以此配置为准
+            if session_config.get("session_id", "") == target_id:
+                if session_config.get("enable", False):
+                    # 添加会话名称到配置中，用于日志显示
+                    config_copy = session_config.copy()
+                    config_copy["_session_name"] = session_config.get(
+                        "session_name", ""
+                    )
+                    config_copy["_session_type"] = "private"
+                    return config_copy
+                else:
+                    # 如果个性化配置存在但未启用，则视为明确禁用，不回退到全局配置
+                    return None
 
         # 2. 检查全局配置的session_list（严格模式：必须明确在list中）
         private_settings = self.config.get("private_settings", {})
@@ -978,15 +989,19 @@ class ProactiveChatPlugin(star.Star):
             "session_5",
         ]:
             session_config = group_sessions.get(session_key, {})
-            if (
-                session_config.get("enable", False)
-                and session_config.get("session_id", "") == target_id
-            ):
-                # 添加会话名称到配置中，用于日志显示
-                config_copy = session_config.copy()
-                config_copy["_session_name"] = session_config.get("session_name", "")
-                config_copy["_session_type"] = "group"
-                return config_copy
+            # 只要 session_id 匹配，就以此配置为准
+            if session_config.get("session_id", "") == target_id:
+                if session_config.get("enable", False):
+                    # 添加会话名称到配置中，用于日志显示
+                    config_copy = session_config.copy()
+                    config_copy["_session_name"] = session_config.get(
+                        "session_name", ""
+                    )
+                    config_copy["_session_type"] = "group"
+                    return config_copy
+                else:
+                    # 如果个性化配置存在但未启用，则视为明确禁用，不回退到全局配置
+                    return None
 
         # 2. 检查全局配置的session_list（严格模式：必须明确在list中）
         group_settings = self.config.get("group_settings", {})
@@ -1598,15 +1613,103 @@ class ProactiveChatPlugin(star.Star):
             logger.warning(f"[主动消息] 获取上下文或人格失败喵: {e}")
             return None
 
+    def _split_text(self, text: str, settings: dict) -> list[str]:
+        """
+        根据配置对文本进行分段。
+        参考 AstrBot 核心 pipeline/result_decorate/stage.py 实现。
+        """
+        split_mode = settings.get("split_mode", "regex")
+
+        if split_mode == "words":
+            split_words = settings.get("split_words", ["。", "？", "！", "~", "…"])
+            if not split_words:
+                return [text]
+
+            escaped_words = sorted(
+                [re.escape(word) for word in split_words], key=len, reverse=True
+            )
+            pattern = re.compile(f"(.*?({'|'.join(escaped_words)})|.+$)", re.DOTALL)
+
+            segments = pattern.findall(text)
+            result = []
+            for seg in segments:
+                if isinstance(seg, tuple):
+                    content = seg[0]
+                    if not isinstance(content, str):
+                        continue
+                    # 移除末尾的分隔符（如果需要的话，这里保持原样，模仿AstrBot行为可能是保留标点）
+                    # AstrBot逻辑似乎保留标点
+                    if content.strip():
+                        result.append(content)
+                elif seg and seg.strip():
+                    result.append(seg)
+            return result if result else [text]
+
+        else:  # regex 模式
+            # 默认正则添加 \n 支持，以支持纯换行分隔的文本
+            regex_pattern = settings.get("regex", r".*?[。？！~…\n]+|.+$")
+            try:
+                split_response = re.findall(
+                    regex_pattern,
+                    text,
+                    re.DOTALL | re.MULTILINE,
+                )
+            except re.error:
+                logger.error(
+                    f"[主动消息] 分段回复正则表达式错误，使用默认分段方式: {traceback.format_exc()}"
+                )
+                split_response = re.findall(
+                    r".*?[。？！~…\n]+|.+$",
+                    text,
+                    re.DOTALL | re.MULTILINE,
+                )
+
+            # 过滤空字符串
+            return [seg for seg in split_response if seg.strip()]
+
+    async def _calc_interval(self, text: str, settings: dict) -> float:
+        """
+        计算分段回复的间隔时间。
+        参考 AstrBot 核心 pipeline/respond/stage.py 实现。
+        """
+        interval_method = settings.get("interval_method", "random")
+
+        if interval_method == "log":
+            log_base = float(settings.get("log_base", 1.8))
+            # 简单的字数统计
+            if all(ord(c) < 128 for c in text):
+                word_count = len(text.split())
+            else:
+                word_count = len([c for c in text if c.isalnum()])
+
+            i = math.log(word_count + 1, log_base)
+            return random.uniform(i, i + 0.5)
+
+        # random
+        interval_str = settings.get("interval", "1.5, 3.5")
+        try:
+            interval_ls = [float(t) for t in interval_str.replace(" ", "").split(",")]
+            if len(interval_ls) != 2:
+                interval = [1.5, 3.5]
+            else:
+                interval = interval_ls
+        except Exception:
+            interval = [1.5, 3.5]
+
+        return random.uniform(interval[0], interval[1])
+
     async def _send_proactive_message(self, session_id: str, text: str):
         """
         负责处理主动消息的发送逻辑，包括TTS语音和文本消息。
+        支持分段回复功能。
 
         发送流程：
         1. 检查TTS配置，如果启用则尝试生成语音
         2. 如果TTS成功，发送语音消息
         3. 根据配置决定是否同时发送文本原文
-        4. 如果TTS失败或禁用，直接发送文本消息
+        4. 如果TTS失败或禁用，检查分段回复配置
+        5. 如果启用分段回复且文本长度未超过阈值，则分段发送
+        6. 否则直接发送文本消息
 
         特别处理：如果是群聊消息，发送后会立即重置沉默倒计时，
         因为Bot发送消息也意味着群聊有活动。
@@ -1623,6 +1726,8 @@ class ProactiveChatPlugin(star.Star):
         )
 
         tts_conf = session_config.get("tts_settings", {})
+        seg_conf = session_config.get("segmented_reply_settings", {})
+
         is_tts_sent = False
         if tts_conf.get("enable_tts", True):
             try:
@@ -1653,14 +1758,44 @@ class ProactiveChatPlugin(star.Star):
                             session_id, MessageChain([Record(file=audio_path)])
                         )
                         is_tts_sent = True
+                        # 发送语音后稍微等待一下
                         await asyncio.sleep(0.5)
             except Exception as e:
                 logger.error(f"[主动消息] 手动TTS流程发生异常喵: {e}")
 
-        if not is_tts_sent or tts_conf.get("always_send_text", True):
-            await self.context.send_message(
-                session_id, MessageChain([Plain(text=text)])
-            )
+        # 决定是否发送文本
+        should_send_text = not is_tts_sent or tts_conf.get("always_send_text", True)
+
+        if should_send_text:
+            # 检查是否启用分段回复
+            enable_seg = seg_conf.get("enable", False)
+            threshold = seg_conf.get("words_count_threshold", 150)
+
+            # 如果启用了分段回复，且字数未超过阈值（为了防止长文被打断影响阅读体验，长文不分段）
+            if enable_seg and len(text) <= threshold:
+                segments = self._split_text(text, seg_conf)
+                if not segments:  # 分段结果为空，直接发送原文本
+                    segments = [text]
+
+                logger.info(
+                    f"[主动消息] 分段回复已启用，将发送 {len(segments)} 条消息喵。"
+                )
+
+                for idx, seg in enumerate(segments):
+                    await self.context.send_message(
+                        session_id, MessageChain([Plain(text=seg)])
+                    )
+
+                    # 如果不是最后一条消息，则等待一段时间
+                    if idx < len(segments) - 1:
+                        interval = await self._calc_interval(seg, seg_conf)
+                        logger.debug(f"[主动消息] 分段回复等待 {interval:.2f} 秒喵。")
+                        await asyncio.sleep(interval)
+            else:
+                # 直接发送
+                await self.context.send_message(
+                    session_id, MessageChain([Plain(text=text)])
+                )
 
         # Bot 自己发送的消息，也应该被视为一次"活动"，重置群聊的沉默倒计时
         if "group" in session_id.lower():
