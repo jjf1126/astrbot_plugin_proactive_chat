@@ -86,6 +86,73 @@
                         "hint": "开启后，即使TTS成功发送了语音，也会再发送一条纯文本原文，确保用户能看到内容"
                     }
                 }
+            },
+            "segmented_reply_settings": {
+                "description": "🔪 分段回复设置",
+                "type": "object",
+                "items": {
+                    "enable": {
+                        "description": "✅ 启用分段回复",
+                        "type": "bool",
+                        "default": false,
+                        "hint": "开启后，Bot回复的文本将被切分为多条短消息发送"
+                    },
+                    "words_count_threshold": {
+                        "description": "📏 不分段字数阈值",
+                        "type": "int",
+                        "default": 150,
+                        "hint": "如果回复内容字数超过此值，则不进行分段"
+                    },
+                    "split_mode": {
+                        "description": "Ⓜ️ 分段模式",
+                        "type": "string",
+                        "options": ["regex", "words"],
+                        "default": "regex",
+                        "labels": ["正则表达式", "分段词列表"]
+                    },
+                    "regex": {
+                        "description": "🧩 分段正则表达式",
+                        "type": "string",
+                        "default": ".*?[。？！~…\\n]+|.+$",
+                        "condition": {
+                            "split_mode": "regex"
+                        }
+                    },
+                    "split_words": {
+                        "description": "📝 分段词列表",
+                        "type": "list",
+                        "default": ["。", "？", "！", "~", "…"],
+                        "condition": {
+                            "split_mode": "words"
+                        },
+                        "hint": "检测到列表中的任意词时进行分段"
+                    },
+                    "interval_method": {
+                        "description": "⏱️ 间隔计算方法",
+                        "type": "string",
+                        "options": ["random", "log"],
+                        "default": "random",
+                        "labels": ["随机", "对数计算"],
+                        "hint": "random: 在区间内随机; log: 根据字数计算 y=log_base(x)"
+                    },
+                    "interval": {
+                        "description": "🎲 随机间隔 (秒)",
+                        "type": "string",
+                        "default": "1.5, 3.5",
+                        "condition": {
+                            "interval_method": "random"
+                        },
+                        "hint": "格式: '最小, 最大'，例如 '1.5, 3.5'"
+                    },
+                    "log_base": {
+                        "description": "📈 对数底数",
+                        "type": "string",
+                        "default": "1.8",
+                        "condition": {
+                            "interval_method": "log"
+                        }
+                    }
+                }
             }
         }
     },
@@ -180,6 +247,73 @@
                         "type": "bool",
                         "default": true,
                         "hint": "开启后，即使TTS成功发送了语音，也会再发送一条纯文本原文，确保所有人都能看到内容"
+                    }
+                }
+            },
+            "segmented_reply_settings": {
+                "description": "🔪 分段回复设置",
+                "type": "object",
+                "items": {
+                    "enable": {
+                        "description": "✅ 启用分段回复",
+                        "type": "bool",
+                        "default": false,
+                        "hint": "开启后，Bot回复的文本将被切分为多条短消息发送"
+                    },
+                    "words_count_threshold": {
+                        "description": "📏 不分段字数阈值",
+                        "type": "int",
+                        "default": 150,
+                        "hint": "如果回复内容字数超过此值，则不进行分段"
+                    },
+                    "split_mode": {
+                        "description": "Ⓜ️ 分段模式",
+                        "type": "string",
+                        "options": ["regex", "words"],
+                        "default": "regex",
+                        "labels": ["正则表达式", "分段词列表"]
+                    },
+                    "regex": {
+                        "description": "🧩 分段正则表达式",
+                        "type": "string",
+                        "default": ".*?[。？！~…\\n]+|.+$",
+                        "condition": {
+                            "split_mode": "regex"
+                        }
+                    },
+                    "split_words": {
+                        "description": "📝 分段词列表",
+                        "type": "list",
+                        "default": ["。", "？", "！", "~", "…"],
+                        "condition": {
+                            "split_mode": "words"
+                        },
+                        "hint": "检测到列表中的任意词时进行分段"
+                    },
+                    "interval_method": {
+                        "description": "⏱️ 间隔计算方法",
+                        "type": "string",
+                        "options": ["random", "log"],
+                        "default": "random",
+                        "labels": ["随机", "对数计算"],
+                        "hint": "random: 在区间内随机; log: 根据字数计算 y=log_base(x)"
+                    },
+                    "interval": {
+                        "description": "🎲 随机间隔 (秒)",
+                        "type": "string",
+                        "default": "1.5, 3.5",
+                        "condition": {
+                            "interval_method": "random"
+                        },
+                        "hint": "格式: '最小, 最大'，例如 '1.5, 3.5'"
+                    },
+                    "log_base": {
+                        "description": "📈 对数底数",
+                        "type": "string",
+                        "default": "1.8",
+                        "condition": {
+                            "interval_method": "log"
+                        }
                     }
                 }
             }
@@ -282,6 +416,73 @@
                                 "hint": "开启后，即使TTS成功发送了语音，也会再发送一条纯文本原文，确保用户能看到内容"
                             }
                         }
+                    },
+                    "segmented_reply_settings": {
+                        "description": "🔪 分段回复设置",
+                        "type": "object",
+                        "items": {
+                            "enable": {
+                                "description": "✅ 启用分段回复",
+                                "type": "bool",
+                                "default": false,
+                                "hint": "开启后，Bot回复的文本将被切分为多条短消息发送"
+                            },
+                            "words_count_threshold": {
+                                "description": "📏 不分段字数阈值",
+                                "type": "int",
+                                "default": 150,
+                                "hint": "如果回复内容字数超过此值，则不进行分段"
+                            },
+                            "split_mode": {
+                                "description": "Ⓜ️ 分段模式",
+                                "type": "string",
+                                "options": ["regex", "words"],
+                                "default": "regex",
+                                "labels": ["正则表达式", "分段词列表"]
+                            },
+                            "regex": {
+                                "description": "🧩 分段正则表达式",
+                                "type": "string",
+                                "default": ".*?[。？！~…\\n]+|.+$",
+                                "condition": {
+                                    "split_mode": "regex"
+                                }
+                            },
+                            "split_words": {
+                                "description": "📝 分段词列表",
+                                "type": "list",
+                                "default": ["。", "？", "！", "~", "…"],
+                                "condition": {
+                                    "split_mode": "words"
+                                },
+                                "hint": "检测到列表中的任意词时进行分段"
+                            },
+                            "interval_method": {
+                                "description": "⏱️ 间隔计算方法",
+                                "type": "string",
+                                "options": ["random", "log"],
+                                "default": "random",
+                                "labels": ["随机", "对数计算"],
+                                "hint": "random: 在区间内随机; log: 根据字数计算 y=log_base(x)"
+                            },
+                            "interval": {
+                                "description": "🎲 随机间隔 (秒)",
+                                "type": "string",
+                                "default": "1.5, 3.5",
+                                "condition": {
+                                    "interval_method": "random"
+                                },
+                                "hint": "格式: '最小, 最大'，例如 '1.5, 3.5'"
+                            },
+                            "log_base": {
+                                "description": "📈 对数底数",
+                                "type": "string",
+                                "default": "1.8",
+                                "condition": {
+                                    "interval_method": "log"
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -376,6 +577,73 @@
                                 "type": "bool",
                                 "default": true,
                                 "hint": "开启后，即使TTS成功发送了语音，也会再发送一条纯文本原文，确保用户能看到内容"
+                            }
+                        }
+                    },
+                    "segmented_reply_settings": {
+                        "description": "🔪 分段回复设置",
+                        "type": "object",
+                        "items": {
+                            "enable": {
+                                "description": "✅ 启用分段回复",
+                                "type": "bool",
+                                "default": false,
+                                "hint": "开启后，Bot回复的文本将被切分为多条短消息发送"
+                            },
+                            "words_count_threshold": {
+                                "description": "📏 不分段字数阈值",
+                                "type": "int",
+                                "default": 150,
+                                "hint": "如果回复内容字数超过此值，则不进行分段"
+                            },
+                            "split_mode": {
+                                "description": "Ⓜ️ 分段模式",
+                                "type": "string",
+                                "options": ["regex", "words"],
+                                "default": "regex",
+                                "labels": ["正则表达式", "分段词列表"]
+                            },
+                            "regex": {
+                                "description": "🧩 分段正则表达式",
+                                "type": "string",
+                                "default": ".*?[。？！~…\\n]+|.+$",
+                                "condition": {
+                                    "split_mode": "regex"
+                                }
+                            },
+                            "split_words": {
+                                "description": "📝 分段词列表",
+                                "type": "list",
+                                "default": ["。", "？", "！", "~", "…"],
+                                "condition": {
+                                    "split_mode": "words"
+                                },
+                                "hint": "检测到列表中的任意词时进行分段"
+                            },
+                            "interval_method": {
+                                "description": "⏱️ 间隔计算方法",
+                                "type": "string",
+                                "options": ["random", "log"],
+                                "default": "random",
+                                "labels": ["随机", "对数计算"],
+                                "hint": "random: 在区间内随机; log: 根据字数计算 y=log_base(x)"
+                            },
+                            "interval": {
+                                "description": "🎲 随机间隔 (秒)",
+                                "type": "string",
+                                "default": "1.5, 3.5",
+                                "condition": {
+                                    "interval_method": "random"
+                                },
+                                "hint": "格式: '最小, 最大'，例如 '1.5, 3.5'"
+                            },
+                            "log_base": {
+                                "description": "📈 对数底数",
+                                "type": "string",
+                                "default": "1.8",
+                                "condition": {
+                                    "interval_method": "log"
+                                }
                             }
                         }
                     }
@@ -474,6 +742,73 @@
                                 "hint": "开启后，即使TTS成功发送了语音，也会再发送一条纯文本原文，确保用户能看到内容"
                             }
                         }
+                    },
+                    "segmented_reply_settings": {
+                        "description": "🔪 分段回复设置",
+                        "type": "object",
+                        "items": {
+                            "enable": {
+                                "description": "✅ 启用分段回复",
+                                "type": "bool",
+                                "default": false,
+                                "hint": "开启后，Bot回复的文本将被切分为多条短消息发送"
+                            },
+                            "words_count_threshold": {
+                                "description": "📏 不分段字数阈值",
+                                "type": "int",
+                                "default": 150,
+                                "hint": "如果回复内容字数超过此值，则不进行分段"
+                            },
+                            "split_mode": {
+                                "description": "Ⓜ️ 分段模式",
+                                "type": "string",
+                                "options": ["regex", "words"],
+                                "default": "regex",
+                                "labels": ["正则表达式", "分段词列表"]
+                            },
+                            "regex": {
+                                "description": "🧩 分段正则表达式",
+                                "type": "string",
+                                "default": ".*?[。？！~…\\n]+|.+$",
+                                "condition": {
+                                    "split_mode": "regex"
+                                }
+                            },
+                            "split_words": {
+                                "description": "📝 分段词列表",
+                                "type": "list",
+                                "default": ["。", "？", "！", "~", "…"],
+                                "condition": {
+                                    "split_mode": "words"
+                                },
+                                "hint": "检测到列表中的任意词时进行分段"
+                            },
+                            "interval_method": {
+                                "description": "⏱️ 间隔计算方法",
+                                "type": "string",
+                                "options": ["random", "log"],
+                                "default": "random",
+                                "labels": ["随机", "对数计算"],
+                                "hint": "random: 在区间内随机; log: 根据字数计算 y=log_base(x)"
+                            },
+                            "interval": {
+                                "description": "🎲 随机间隔 (秒)",
+                                "type": "string",
+                                "default": "1.5, 3.5",
+                                "condition": {
+                                    "interval_method": "random"
+                                },
+                                "hint": "格式: '最小, 最大'，例如 '1.5, 3.5'"
+                            },
+                            "log_base": {
+                                "description": "📈 对数底数",
+                                "type": "string",
+                                "default": "1.8",
+                                "condition": {
+                                    "interval_method": "log"
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -570,6 +905,73 @@
                                 "hint": "开启后，即使TTS成功发送了语音，也会再发送一条纯文本原文，确保用户能看到内容"
                             }
                         }
+                    },
+                    "segmented_reply_settings": {
+                        "description": "🔪 分段回复设置",
+                        "type": "object",
+                        "items": {
+                            "enable": {
+                                "description": "✅ 启用分段回复",
+                                "type": "bool",
+                                "default": false,
+                                "hint": "开启后，Bot回复的文本将被切分为多条短消息发送"
+                            },
+                            "words_count_threshold": {
+                                "description": "📏 不分段字数阈值",
+                                "type": "int",
+                                "default": 150,
+                                "hint": "如果回复内容字数超过此值，则不进行分段"
+                            },
+                            "split_mode": {
+                                "description": "Ⓜ️ 分段模式",
+                                "type": "string",
+                                "options": ["regex", "words"],
+                                "default": "regex",
+                                "labels": ["正则表达式", "分段词列表"]
+                            },
+                            "regex": {
+                                "description": "🧩 分段正则表达式",
+                                "type": "string",
+                                "default": ".*?[。？！~…\\n]+|.+$",
+                                "condition": {
+                                    "split_mode": "regex"
+                                }
+                            },
+                            "split_words": {
+                                "description": "📝 分段词列表",
+                                "type": "list",
+                                "default": ["。", "？", "！", "~", "…"],
+                                "condition": {
+                                    "split_mode": "words"
+                                },
+                                "hint": "检测到列表中的任意词时进行分段"
+                            },
+                            "interval_method": {
+                                "description": "⏱️ 间隔计算方法",
+                                "type": "string",
+                                "options": ["random", "log"],
+                                "default": "random",
+                                "labels": ["随机", "对数计算"],
+                                "hint": "random: 在区间内随机; log: 根据字数计算 y=log_base(x)"
+                            },
+                            "interval": {
+                                "description": "🎲 随机间隔 (秒)",
+                                "type": "string",
+                                "default": "1.5, 3.5",
+                                "condition": {
+                                    "interval_method": "random"
+                                },
+                                "hint": "格式: '最小, 最大'，例如 '1.5, 3.5'"
+                            },
+                            "log_base": {
+                                "description": "📈 对数底数",
+                                "type": "string",
+                                "default": "1.8",
+                                "condition": {
+                                    "interval_method": "log"
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -664,6 +1066,73 @@
                                 "type": "bool",
                                 "default": true,
                                 "hint": "开启后，即使TTS成功发送了语音，也会再发送一条纯文本原文，确保用户能看到内容"
+                            }
+                        }
+                    },
+                    "segmented_reply_settings": {
+                        "description": "🔪 分段回复设置",
+                        "type": "object",
+                        "items": {
+                            "enable": {
+                                "description": "✅ 启用分段回复",
+                                "type": "bool",
+                                "default": false,
+                                "hint": "开启后，Bot回复的文本将被切分为多条短消息发送"
+                            },
+                            "words_count_threshold": {
+                                "description": "📏 不分段字数阈值",
+                                "type": "int",
+                                "default": 150,
+                                "hint": "如果回复内容字数超过此值，则不进行分段"
+                            },
+                            "split_mode": {
+                                "description": "Ⓜ️ 分段模式",
+                                "type": "string",
+                                "options": ["regex", "words"],
+                                "default": "regex",
+                                "labels": ["正则表达式", "分段词列表"]
+                            },
+                            "regex": {
+                                "description": "🧩 分段正则表达式",
+                                "type": "string",
+                                "default": ".*?[。？！~…\\n]+|.+$",
+                                "condition": {
+                                    "split_mode": "regex"
+                                }
+                            },
+                            "split_words": {
+                                "description": "📝 分段词列表",
+                                "type": "list",
+                                "default": ["。", "？", "！", "~", "…"],
+                                "condition": {
+                                    "split_mode": "words"
+                                },
+                                "hint": "检测到列表中的任意词时进行分段"
+                            },
+                            "interval_method": {
+                                "description": "⏱️ 间隔计算方法",
+                                "type": "string",
+                                "options": ["random", "log"],
+                                "default": "random",
+                                "labels": ["随机", "对数计算"],
+                                "hint": "random: 在区间内随机; log: 根据字数计算 y=log_base(x)"
+                            },
+                            "interval": {
+                                "description": "🎲 随机间隔 (秒)",
+                                "type": "string",
+                                "default": "1.5, 3.5",
+                                "condition": {
+                                    "interval_method": "random"
+                                },
+                                "hint": "格式: '最小, 最大'，例如 '1.5, 3.5'"
+                            },
+                            "log_base": {
+                                "description": "📈 对数底数",
+                                "type": "string",
+                                "default": "1.8",
+                                "condition": {
+                                    "interval_method": "log"
+                                }
                             }
                         }
                     }
@@ -774,6 +1243,73 @@
                                 "hint": "开启后，即使TTS成功发送了语音，也会再发送一条纯文本原文，确保所有人都能看到内容"
                             }
                         }
+                    },
+                    "segmented_reply_settings": {
+                        "description": "🔪 分段回复设置",
+                        "type": "object",
+                        "items": {
+                            "enable": {
+                                "description": "✅ 启用分段回复",
+                                "type": "bool",
+                                "default": false,
+                                "hint": "开启后，Bot回复的文本将被切分为多条短消息发送"
+                            },
+                            "words_count_threshold": {
+                                "description": "📏 不分段字数阈值",
+                                "type": "int",
+                                "default": 150,
+                                "hint": "如果回复内容字数超过此值，则不进行分段"
+                            },
+                            "split_mode": {
+                                "description": "Ⓜ️ 分段模式",
+                                "type": "string",
+                                "options": ["regex", "words"],
+                                "default": "regex",
+                                "labels": ["正则表达式", "分段词列表"]
+                            },
+                            "regex": {
+                                "description": "🧩 分段正则表达式",
+                                "type": "string",
+                                "default": ".*?[。？！~…\\n]+|.+$",
+                                "condition": {
+                                    "split_mode": "regex"
+                                }
+                            },
+                            "split_words": {
+                                "description": "📝 分段词列表",
+                                "type": "list",
+                                "default": ["。", "？", "！", "~", "…"],
+                                "condition": {
+                                    "split_mode": "words"
+                                },
+                                "hint": "检测到列表中的任意词时进行分段"
+                            },
+                            "interval_method": {
+                                "description": "⏱️ 间隔计算方法",
+                                "type": "string",
+                                "options": ["random", "log"],
+                                "default": "random",
+                                "labels": ["随机", "对数计算"],
+                                "hint": "random: 在区间内随机; log: 根据字数计算 y=log_base(x)"
+                            },
+                            "interval": {
+                                "description": "🎲 随机间隔 (秒)",
+                                "type": "string",
+                                "default": "1.5, 3.5",
+                                "condition": {
+                                    "interval_method": "random"
+                                },
+                                "hint": "格式: '最小, 最大'，例如 '1.5, 3.5'"
+                            },
+                            "log_base": {
+                                "description": "📈 对数底数",
+                                "type": "string",
+                                "default": "1.8",
+                                "condition": {
+                                    "interval_method": "log"
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -874,6 +1410,73 @@
                                 "type": "bool",
                                 "default": true,
                                 "hint": "开启后，即使TTS成功发送了语音，也会再发送一条纯文本原文，确保所有人都能看到内容"
+                            }
+                        }
+                    },
+                    "segmented_reply_settings": {
+                        "description": "🔪 分段回复设置",
+                        "type": "object",
+                        "items": {
+                            "enable": {
+                                "description": "✅ 启用分段回复",
+                                "type": "bool",
+                                "default": false,
+                                "hint": "开启后，Bot回复的文本将被切分为多条短消息发送"
+                            },
+                            "words_count_threshold": {
+                                "description": "📏 不分段字数阈值",
+                                "type": "int",
+                                "default": 150,
+                                "hint": "如果回复内容字数超过此值，则不进行分段"
+                            },
+                            "split_mode": {
+                                "description": "Ⓜ️ 分段模式",
+                                "type": "string",
+                                "options": ["regex", "words"],
+                                "default": "regex",
+                                "labels": ["正则表达式", "分段词列表"]
+                            },
+                            "regex": {
+                                "description": "🧩 分段正则表达式",
+                                "type": "string",
+                                "default": ".*?[。？！~…\\n]+|.+$",
+                                "condition": {
+                                    "split_mode": "regex"
+                                }
+                            },
+                            "split_words": {
+                                "description": "📝 分段词列表",
+                                "type": "list",
+                                "default": ["。", "？", "！", "~", "…"],
+                                "condition": {
+                                    "split_mode": "words"
+                                },
+                                "hint": "检测到列表中的任意词时进行分段"
+                            },
+                            "interval_method": {
+                                "description": "⏱️ 间隔计算方法",
+                                "type": "string",
+                                "options": ["random", "log"],
+                                "default": "random",
+                                "labels": ["随机", "对数计算"],
+                                "hint": "random: 在区间内随机; log: 根据字数计算 y=log_base(x)"
+                            },
+                            "interval": {
+                                "description": "🎲 随机间隔 (秒)",
+                                "type": "string",
+                                "default": "1.5, 3.5",
+                                "condition": {
+                                    "interval_method": "random"
+                                },
+                                "hint": "格式: '最小, 最大'，例如 '1.5, 3.5'"
+                            },
+                            "log_base": {
+                                "description": "📈 对数底数",
+                                "type": "string",
+                                "default": "1.8",
+                                "condition": {
+                                    "interval_method": "log"
+                                }
                             }
                         }
                     }
@@ -978,6 +1581,73 @@
                                 "hint": "开启后，即使TTS成功发送了语音，也会再发送一条纯文本原文，确保所有人都能看到内容"
                             }
                         }
+                    },
+                    "segmented_reply_settings": {
+                        "description": "🔪 分段回复设置",
+                        "type": "object",
+                        "items": {
+                            "enable": {
+                                "description": "✅ 启用分段回复",
+                                "type": "bool",
+                                "default": false,
+                                "hint": "开启后，Bot回复的文本将被切分为多条短消息发送"
+                            },
+                            "words_count_threshold": {
+                                "description": "📏 不分段字数阈值",
+                                "type": "int",
+                                "default": 150,
+                                "hint": "如果回复内容字数超过此值，则不进行分段"
+                            },
+                            "split_mode": {
+                                "description": "Ⓜ️ 分段模式",
+                                "type": "string",
+                                "options": ["regex", "words"],
+                                "default": "regex",
+                                "labels": ["正则表达式", "分段词列表"]
+                            },
+                            "regex": {
+                                "description": "🧩 分段正则表达式",
+                                "type": "string",
+                                "default": ".*?[。？！~…\\n]+|.+$",
+                                "condition": {
+                                    "split_mode": "regex"
+                                }
+                            },
+                            "split_words": {
+                                "description": "📝 分段词列表",
+                                "type": "list",
+                                "default": ["。", "？", "！", "~", "…"],
+                                "condition": {
+                                    "split_mode": "words"
+                                },
+                                "hint": "检测到列表中的任意词时进行分段"
+                            },
+                            "interval_method": {
+                                "description": "⏱️ 间隔计算方法",
+                                "type": "string",
+                                "options": ["random", "log"],
+                                "default": "random",
+                                "labels": ["随机", "对数计算"],
+                                "hint": "random: 在区间内随机; log: 根据字数计算 y=log_base(x)"
+                            },
+                            "interval": {
+                                "description": "🎲 随机间隔 (秒)",
+                                "type": "string",
+                                "default": "1.5, 3.5",
+                                "condition": {
+                                    "interval_method": "random"
+                                },
+                                "hint": "格式: '最小, 最大'，例如 '1.5, 3.5'"
+                            },
+                            "log_base": {
+                                "description": "📈 对数底数",
+                                "type": "string",
+                                "default": "1.8",
+                                "condition": {
+                                    "interval_method": "log"
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -1080,6 +1750,73 @@
                                 "hint": "开启后，即使TTS成功发送了语音，也会再发送一条纯文本原文，确保所有人都能看到内容"
                             }
                         }
+                    },
+                    "segmented_reply_settings": {
+                        "description": "🔪 分段回复设置",
+                        "type": "object",
+                        "items": {
+                            "enable": {
+                                "description": "✅ 启用分段回复",
+                                "type": "bool",
+                                "default": false,
+                                "hint": "开启后，Bot回复的文本将被切分为多条短消息发送"
+                            },
+                            "words_count_threshold": {
+                                "description": "📏 不分段字数阈值",
+                                "type": "int",
+                                "default": 150,
+                                "hint": "如果回复内容字数超过此值，则不进行分段"
+                            },
+                            "split_mode": {
+                                "description": "Ⓜ️ 分段模式",
+                                "type": "string",
+                                "options": ["regex", "words"],
+                                "default": "regex",
+                                "labels": ["正则表达式", "分段词列表"]
+                            },
+                            "regex": {
+                                "description": "🧩 分段正则表达式",
+                                "type": "string",
+                                "default": ".*?[。？！~…\\n]+|.+$",
+                                "condition": {
+                                    "split_mode": "regex"
+                                }
+                            },
+                            "split_words": {
+                                "description": "📝 分段词列表",
+                                "type": "list",
+                                "default": ["。", "？", "！", "~", "…"],
+                                "condition": {
+                                    "split_mode": "words"
+                                },
+                                "hint": "检测到列表中的任意词时进行分段"
+                            },
+                            "interval_method": {
+                                "description": "⏱️ 间隔计算方法",
+                                "type": "string",
+                                "options": ["random", "log"],
+                                "default": "random",
+                                "labels": ["随机", "对数计算"],
+                                "hint": "random: 在区间内随机; log: 根据字数计算 y=log_base(x)"
+                            },
+                            "interval": {
+                                "description": "🎲 随机间隔 (秒)",
+                                "type": "string",
+                                "default": "1.5, 3.5",
+                                "condition": {
+                                    "interval_method": "random"
+                                },
+                                "hint": "格式: '最小, 最大'，例如 '1.5, 3.5'"
+                            },
+                            "log_base": {
+                                "description": "📈 对数底数",
+                                "type": "string",
+                                "default": "1.8",
+                                "condition": {
+                                    "interval_method": "log"
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -1180,6 +1917,73 @@
                                 "type": "bool",
                                 "default": true,
                                 "hint": "开启后，即使TTS成功发送了语音，也会再发送一条纯文本原文，确保所有人都能看到内容"
+                            }
+                        }
+                    },
+                    "segmented_reply_settings": {
+                        "description": "🔪 分段回复设置",
+                        "type": "object",
+                        "items": {
+                            "enable": {
+                                "description": "✅ 启用分段回复",
+                                "type": "bool",
+                                "default": false,
+                                "hint": "开启后，Bot回复的文本将被切分为多条短消息发送"
+                            },
+                            "words_count_threshold": {
+                                "description": "📏 不分段字数阈值",
+                                "type": "int",
+                                "default": 150,
+                                "hint": "如果回复内容字数超过此值，则不进行分段"
+                            },
+                            "split_mode": {
+                                "description": "Ⓜ️ 分段模式",
+                                "type": "string",
+                                "options": ["regex", "words"],
+                                "default": "regex",
+                                "labels": ["正则表达式", "分段词列表"]
+                            },
+                            "regex": {
+                                "description": "🧩 分段正则表达式",
+                                "type": "string",
+                                "default": ".*?[。？！~…\\n]+|.+$",
+                                "condition": {
+                                    "split_mode": "regex"
+                                }
+                            },
+                            "split_words": {
+                                "description": "📝 分段词列表",
+                                "type": "list",
+                                "default": ["。", "？", "！", "~", "…"],
+                                "condition": {
+                                    "split_mode": "words"
+                                },
+                                "hint": "检测到列表中的任意词时进行分段"
+                            },
+                            "interval_method": {
+                                "description": "⏱️ 间隔计算方法",
+                                "type": "string",
+                                "options": ["random", "log"],
+                                "default": "random",
+                                "labels": ["随机", "对数计算"],
+                                "hint": "random: 在区间内随机; log: 根据字数计算 y=log_base(x)"
+                            },
+                            "interval": {
+                                "description": "🎲 随机间隔 (秒)",
+                                "type": "string",
+                                "default": "1.5, 3.5",
+                                "condition": {
+                                    "interval_method": "random"
+                                },
+                                "hint": "格式: '最小, 最大'，例如 '1.5, 3.5'"
+                            },
+                            "log_base": {
+                                "description": "📈 对数底数",
+                                "type": "string",
+                                "default": "1.8",
+                                "condition": {
+                                    "interval_method": "log"
+                                }
                             }
                         }
                     }
