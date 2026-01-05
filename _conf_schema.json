@@ -127,6 +127,12 @@
                         },
                         "hint": "检测到列表中的任意词时进行分段"
                     },
+                    "clean_regex": {
+                        "description": "🧹 内容清洗正则",
+                        "type": "string",
+                        "default": "",
+                        "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
+                    },
                     "interval_method": {
                         "description": "⏱️ 间隔计算方法",
                         "type": "string",
@@ -289,6 +295,12 @@
                             "split_mode": "words"
                         },
                         "hint": "检测到列表中的任意词时进行分段"
+                    },
+                    "clean_regex": {
+                        "description": "🧹 内容清洗正则",
+                        "type": "string",
+                        "default": "",
+                        "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
                     },
                     "interval_method": {
                         "description": "⏱️ 间隔计算方法",
@@ -457,6 +469,12 @@
                                 },
                                 "hint": "检测到列表中的任意词时进行分段"
                             },
+                            "clean_regex": {
+                                "description": "🧹 内容清洗正则",
+                                "type": "string",
+                                "default": "",
+                                "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
+                            },
                             "interval_method": {
                                 "description": "⏱️ 间隔计算方法",
                                 "type": "string",
@@ -619,6 +637,12 @@
                                     "split_mode": "words"
                                 },
                                 "hint": "检测到列表中的任意词时进行分段"
+                            },
+                            "clean_regex": {
+                                "description": "🧹 内容清洗正则",
+                                "type": "string",
+                                "default": "",
+                                "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
                             },
                             "interval_method": {
                                 "description": "⏱️ 间隔计算方法",
@@ -783,6 +807,12 @@
                                 },
                                 "hint": "检测到列表中的任意词时进行分段"
                             },
+                            "clean_regex": {
+                                "description": "🧹 内容清洗正则",
+                                "type": "string",
+                                "default": "",
+                                "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
+                            },
                             "interval_method": {
                                 "description": "⏱️ 间隔计算方法",
                                 "type": "string",
@@ -946,6 +976,12 @@
                                 },
                                 "hint": "检测到列表中的任意词时进行分段"
                             },
+                            "clean_regex": {
+                                "description": "🧹 内容清洗正则",
+                                "type": "string",
+                                "default": "",
+                                "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
+                            },
                             "interval_method": {
                                 "description": "⏱️ 间隔计算方法",
                                 "type": "string",
@@ -1108,6 +1144,12 @@
                                     "split_mode": "words"
                                 },
                                 "hint": "检测到列表中的任意词时进行分段"
+                            },
+                            "clean_regex": {
+                                "description": "🧹 内容清洗正则",
+                                "type": "string",
+                                "default": "",
+                                "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
                             },
                             "interval_method": {
                                 "description": "⏱️ 间隔计算方法",
@@ -1284,6 +1326,12 @@
                                 },
                                 "hint": "检测到列表中的任意词时进行分段"
                             },
+                            "clean_regex": {
+                                "description": "🧹 内容清洗正则",
+                                "type": "string",
+                                "default": "",
+                                "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
+                            },
                             "interval_method": {
                                 "description": "⏱️ 间隔计算方法",
                                 "type": "string",
@@ -1452,6 +1500,12 @@
                                     "split_mode": "words"
                                 },
                                 "hint": "检测到列表中的任意词时进行分段"
+                            },
+                            "clean_regex": {
+                                "description": "🧹 内容清洗正则",
+                                "type": "string",
+                                "default": "",
+                                "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
                             },
                             "interval_method": {
                                 "description": "⏱️ 间隔计算方法",
@@ -1622,6 +1676,12 @@
                                 },
                                 "hint": "检测到列表中的任意词时进行分段"
                             },
+                            "clean_regex": {
+                                "description": "🧹 内容清洗正则",
+                                "type": "string",
+                                "default": "",
+                                "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
+                            },
                             "interval_method": {
                                 "description": "⏱️ 间隔计算方法",
                                 "type": "string",
@@ -1790,6 +1850,12 @@
                                     "split_mode": "words"
                                 },
                                 "hint": "检测到列表中的任意词时进行分段"
+                            },
+                            "clean_regex": {
+                                "description": "🧹 内容清洗正则",
+                                "type": "string",
+                                "default": "",
+                                "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
                             },
                             "interval_method": {
                                 "description": "⏱️ 间隔计算方法",
@@ -1960,6 +2026,12 @@
                                 },
                                 "hint": "检测到列表中的任意词时进行分段"
                             },
+                            "clean_regex": {
+                                "description": "🧹 内容清洗正则",
+                                "type": "string",
+                                "default": "",
+                                "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
+                            },
                             "interval_method": {
                                 "description": "⏱️ 间隔计算方法",
                                 "type": "string",
@@ -1992,3 +2064,4 @@
         }
     }
 }
+
