@@ -1771,6 +1771,27 @@ class ProactiveChatPlugin(star.Star):
             enable_seg = seg_conf.get("enable", False)
             threshold = seg_conf.get("words_count_threshold", 150)
             clean_pattern = seg_conf.get("clean_regex", "")  # 统一使用 clean_regex
+            global_clean_pattern = seg_conf.get("global_clean_regex", "")
+
+            # ============================================================
+            # 0. 执行全局清洗 (Pre-Split Cleaning)
+            # ============================================================
+            if global_clean_pattern:
+                try:
+                    # 预编译正则，开启 DOTALL 模式以支持跨行匹配 (如 <think>...换行...</think>)
+                    global_regex = re.compile(global_clean_pattern, re.DOTALL)
+                    original_len = len(text)
+                    text = global_regex.sub("", text)
+                    
+                    if len(text) != original_len:
+                        logger.debug(f"[主动消息] 全局正则清洗生效: 长度 {original_len} -> {len(text)}")
+                    
+                    # 如果全局清洗后内容为空，直接结束
+                    if not text.strip():
+                        logger.warning("[主动消息] 消息经全局清洗后为空，跳过发送。")
+                        return
+                except re.error as e:
+                    logger.error(f"[主动消息] 全局清洗正则配置错误: {e}")    
 
             # 初始化分段列表
             segments = []
@@ -2262,4 +2283,5 @@ def is_quiet_time(quiet_hours_str: str, tz: zoneinfo.ZoneInfo) -> bool:
     # 捕获可能发生的多种异常
     except (ValueError, TypeError):
         return False
+
 
