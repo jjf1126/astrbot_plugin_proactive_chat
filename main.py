@@ -1884,7 +1884,7 @@ class ProactiveChatPlugin(star.Star):
         should_send_text = not is_tts_sent or tts_conf.get("always_send_text", True)
 
         if should_send_text:
-            # 检查配置
+            # 检查是否启用分段回复
             enable_seg = seg_conf.get("enable", False)
             threshold = seg_conf.get("words_count_threshold", 150)
             clean_pattern = seg_conf.get("clean_regex", "")  # 统一使用 clean_regex
@@ -1895,7 +1895,7 @@ class ProactiveChatPlugin(star.Star):
             # ============================================================
             if global_clean_pattern:
                 try:
-                    # 预编译正则，开启 DOTALL 模式以支持跨行匹配
+                    # 预编译正则，开启 DOTALL 模式以支持跨行匹配 (如 <think>...换行...</think>)
                     global_regex = re.compile(global_clean_pattern, re.DOTALL)
                     original_len = len(text)
                     text = global_regex.sub("", text)
@@ -1908,65 +1908,63 @@ class ProactiveChatPlugin(star.Star):
                         logger.warning("[主动消息] 消息经全局清洗后为空，跳过发送。")
                         return
                 except re.error as e:
-                    logger.error(f"[主动消息] 全局清洗正则配置错误: {e}")
+                    logger.error(f"[主动消息] 全局清洗正则配置错误: {e}")    
 
-            # ============================================================
-            # 1. 执行拆分逻辑
-            # ============================================================
+            # 初始化分段列表
             segments = []
-            # 逻辑：启用分段 且 长度超过阈值
-            if enable_seg and len(text) > threshold:
+
+            # 1. 执行拆分
+            if enable_seg and len(text) <= threshold:
                 segments = self._split_text(text, seg_conf)
                 if not segments:
                     segments = [text]
-                logger.info(f"[主动消息] 分段回复已启用，拆分为 {len(segments)} 段")
+                logger.info(f"[主动消息] 分段回复已启用，原始分段数: {len(segments)}")
             else:
-                # 不满足分段条件，则整体作为一段
                 segments = [text]
 
-            # ============================================================
-            # 2. 批量执行清洗 (针对每一段进行局部清洗)
-            # ============================================================
+            # 2. 批量执行清洗 (参考 Splitter 逻辑：先清洗所有段落)
             if clean_pattern:
                 try:
                     cleaned_segments = []
                     for seg in segments:
+                        # 执行正则替换
                         new_seg = re.sub(clean_pattern, "", seg)
+                        # 记录清洗日志（仅当内容发生变化时）
                         if new_seg != seg:
-                            logger.debug(f"[主动消息] 内容局部清洗: '{seg[:20]}...' -> '{new_seg[:20]}...'")
+                            logger.debug(f"[主动消息] 内容清洗: '{seg}' -> '{new_seg}'")
                         cleaned_segments.append(new_seg)
                     segments = cleaned_segments
                 except re.error as e:
                     logger.error(f"[主动消息] 清洗正则配置错误: {e}")
 
-            # ============================================================
-            # 3. 统一发送逻辑 (唯一的发送出口)
-            # ============================================================
+            # 3. 逐条发送逻辑
             sent_count = 0
             total_segments = len(segments)
 
             for idx, seg in enumerate(segments):
-                # 空内容检查
+                # 空内容检查 (参考 Splitter: strip检查)
                 if not seg.strip():
-                    logger.warning(f"[主动消息] 第 {idx+1}/{total_segments} 段内容为空，已跳过。")
+                    logger.warning(f"[主动消息] 第 {idx+1}/{total_segments} 段内容清洗后为空，已跳过。")
                     continue
                 
+                # 发送消息
                 try:
-                    # 统一使用带 Hook 的发送方法，确保统计和中间件生效
-                    await self._send_chain_with_hooks(session_id, [Plain(text=seg)])
+                    await self.context.send_message(
+                        session_id, MessageChain([Plain(text=seg)])
+                    )
                     sent_count += 1
                     
-                    # 模拟打字延迟 (只有存在下一段时才延迟)
+                    # 模拟打字延迟 (最后一段不延迟)
                     if idx < total_segments - 1:
                         interval = await self._calc_interval(seg, seg_conf)
-                        logger.debug(f"[主动消息] 分段发送中，等待 {interval:.2f} 秒。")
+                        logger.debug(f"[主动消息] 分段回复等待 {interval:.2f} 秒喵。")
                         await asyncio.sleep(interval)
                         
                 except Exception as e:
                     logger.error(f"[主动消息] 发送分段 {idx+1} 失败: {e}")
 
             if sent_count == 0:
-                logger.warning("[主动消息] 所有内容均被过滤或发送失败，未发送任何消息。")
+                logger.warning("[主动消息] 所有分段均被过滤，未发送任何文本消息。")
 
         # Bot 自己发送的消息，也应该被视为一次"活动"，重置群聊的沉默倒计时
         if "group" in session_id.lower():
@@ -2402,4 +2400,5 @@ def is_quiet_time(quiet_hours_str: str, tz: zoneinfo.ZoneInfo) -> bool:
     # 捕获可能发生的多种异常
     except (ValueError, TypeError):
         return False
+
 
