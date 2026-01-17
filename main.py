@@ -32,7 +32,10 @@ from astrbot.core.agent.message import (
 )
 from astrbot.core.config.astrbot_config import AstrBotConfig
 from astrbot.core.message.components import Plain, Record
-from astrbot.core.message.message_event_result import MessageChain
+from astrbot.core.message.message_event_result import MessageChain, MessageEventResult
+from astrbot.core.platform.astrbot_message import AstrBotMessage, Group, MessageMember
+from astrbot.core.platform.message_type import MessageType
+from astrbot.core.star.star_handler import EventType, star_handlers_registry
 
 # --- 插件主类 ---
 
@@ -1191,6 +1194,13 @@ class ProactiveChatPlugin(star.Star):
 
         session_id = event.unified_msg_origin
 
+        # 缓存 self_id
+        if event.get_self_id():
+            async with self.data_lock:
+                self.session_data.setdefault(session_id, {})["self_id"] = (
+                    event.get_self_id()
+                )
+
         # 记录消息时间并取消自动触发
         # 只记录插件启动后的消息时间，用于自动触发功能
         current_time = time.time()
@@ -1247,6 +1257,13 @@ class ProactiveChatPlugin(star.Star):
             return
 
         session_id = event.unified_msg_origin
+
+        # 缓存 self_id
+        if event.get_self_id():
+            async with self.data_lock:
+                self.session_data.setdefault(session_id, {})["self_id"] = (
+                    event.get_self_id()
+                )
 
         # 使用会话隔离的状态管理，避免竞态条件
         current_time = time.time()
@@ -1698,6 +1715,105 @@ class ProactiveChatPlugin(star.Star):
 
         return random.uniform(interval[0], interval[1])
 
+    async def _trigger_decorating_hooks(self, session_id: str, chain: list) -> list:
+        """
+        触发 OnDecoratingResultEvent 钩子，让其他插件（如文本转语音、尾巴等）有机会处理消息。
+        构造一个伪造的 AstrMessageEvent 来模拟消息处理流程。
+        """
+        # 1. 解析 session_id
+        parsed = self._parse_session_id(session_id)
+        if not parsed:
+            return chain
+
+        platform_name, msg_type_str, target_id = parsed
+
+        # 2. 获取 Platform 实例
+        platform_inst = None
+        for p in self.context.platform_manager.platform_insts:
+            if p.meta().id == platform_name:
+                platform_inst = p
+                break
+
+        if not platform_inst:
+            for p in self.context.platform_manager.platform_insts:
+                if p.meta().name == platform_name:
+                    platform_inst = p
+                    break
+
+        if not platform_inst:
+            return chain
+
+        # 3. 构造 AstrBotMessage
+        message_obj = AstrBotMessage()
+        if "Friend" in msg_type_str:
+            message_obj.type = MessageType.FRIEND_MESSAGE
+        elif "Group" in msg_type_str:
+            message_obj.type = MessageType.GROUP_MESSAGE
+            message_obj.group = Group(group_id=target_id)
+        else:
+            message_obj.type = MessageType.FRIEND_MESSAGE
+
+        message_obj.session_id = target_id
+        message_obj.message = chain
+        # 尝试获取已知的 self_id，如果获取不到则使用占位符
+        # 这里使用 session_data 中缓存的 self_id (如果在 on_message 中保存了)
+        # 或者使用默认值
+        message_obj.self_id = self.session_data.get(session_id, {}).get(
+            "self_id", "bot"
+        )
+
+        # 将发送者设为目标用户，模拟是用户发来的消息触发了回复（虽然这是主动消息）
+        # 这样有助于一些依赖 sender 信息的装饰器正常工作
+        message_obj.sender = MessageMember(user_id=target_id)
+
+        # 补全其他可能被访问的属性，防止 AttributeError
+        message_obj.message_str = ""
+        message_obj.raw_message = None
+        message_obj.message_id = ""
+
+        # 4. 构造 AstrMessageEvent
+        event = AstrMessageEvent(
+            message_str="",
+            message_obj=message_obj,
+            platform_meta=platform_inst.meta(),
+            session_id=target_id,
+        )
+
+        # 5. 设置 Result
+        res = MessageEventResult()
+        res.chain = chain
+        event.set_result(res)
+
+        # 6. 触发 Hooks
+        handlers = star_handlers_registry.get_handlers_by_event_type(
+            EventType.OnDecoratingResultEvent
+        )
+        for handler in handlers:
+            try:
+                await handler.handler(event)
+            except Exception as e:
+                logger.error(
+                    f"[主动消息] 执行装饰钩子 {handler.handler_name} 失败: {e}"
+                )
+
+        # 7. 返回结果
+        # 必须尊重 event.get_result()，如果装饰器清空了 chain（意图拦截），我们应该返回空列表
+        res = event.get_result()
+        if res is not None:
+            return res.chain if res.chain is not None else []
+        return chain
+
+    async def _send_chain_with_hooks(self, session_id: str, components: list):
+        """发送消息链，并先应用装饰钩子"""
+        processed_chain_list = await self._trigger_decorating_hooks(
+            session_id, components
+        )
+
+        if not processed_chain_list:
+            return
+
+        await self.context.send_message(session_id, MessageChain(processed_chain_list))
+
     async def _send_proactive_message(self, session_id: str, text: str):
         """
         负责处理主动消息的发送逻辑，包括TTS语音和文本消息。
@@ -1754,6 +1870,7 @@ class ProactiveChatPlugin(star.Star):
                 if tts_provider:
                     audio_path = await tts_provider.get_audio(text)
                     if audio_path:
+                        # TTS 消息通常不需要装饰（或者是音频文件，装饰器可能处理不了），直接发送
                         await self.context.send_message(
                             session_id, MessageChain([Record(file=audio_path)])
                         )
@@ -1770,84 +1887,30 @@ class ProactiveChatPlugin(star.Star):
             # 检查是否启用分段回复
             enable_seg = seg_conf.get("enable", False)
             threshold = seg_conf.get("words_count_threshold", 150)
-            clean_pattern = seg_conf.get("clean_regex", "")  # 统一使用 clean_regex
-            global_clean_pattern = seg_conf.get("global_clean_regex", "")
 
-            # ============================================================
-            # 0. 执行全局清洗 (Pre-Split Cleaning)
-            # ============================================================
-            if global_clean_pattern:
-                try:
-                    # 预编译正则，开启 DOTALL 模式以支持跨行匹配 (如 <think>...换行...</think>)
-                    global_regex = re.compile(global_clean_pattern, re.DOTALL)
-                    original_len = len(text)
-                    text = global_regex.sub("", text)
-                    
-                    if len(text) != original_len:
-                        logger.debug(f"[主动消息] 全局正则清洗生效: 长度 {original_len} -> {len(text)}")
-                    
-                    # 如果全局清洗后内容为空，直接结束
-                    if not text.strip():
-                        logger.warning("[主动消息] 消息经全局清洗后为空，跳过发送。")
-                        return
-                except re.error as e:
-                    logger.error(f"[主动消息] 全局清洗正则配置错误: {e}")    
-
-            # 初始化分段列表
-            segments = []
-
-            # 1. 执行拆分
+            # 如果启用了分段回复，且字数未超过阈值（为了防止长文被打断影响阅读体验，长文不分段）
             if enable_seg and len(text) <= threshold:
                 segments = self._split_text(text, seg_conf)
-                if not segments:
+                if not segments:  # 分段结果为空，直接发送原文本
                     segments = [text]
-                logger.info(f"[主动消息] 分段回复已启用，原始分段数: {len(segments)}")
-            else:
-                segments = [text]
 
-            # 2. 批量执行清洗 (参考 Splitter 逻辑：先清洗所有段落)
-            if clean_pattern:
-                try:
-                    cleaned_segments = []
-                    for seg in segments:
-                        # 执行正则替换
-                        new_seg = re.sub(clean_pattern, "", seg)
-                        # 记录清洗日志（仅当内容发生变化时）
-                        if new_seg != seg:
-                            logger.debug(f"[主动消息] 内容清洗: '{seg}' -> '{new_seg}'")
-                        cleaned_segments.append(new_seg)
-                    segments = cleaned_segments
-                except re.error as e:
-                    logger.error(f"[主动消息] 清洗正则配置错误: {e}")
+                logger.info(
+                    f"[主动消息] 分段回复已启用，将发送 {len(segments)} 条消息喵。"
+                )
 
-            # 3. 逐条发送逻辑
-            sent_count = 0
-            total_segments = len(segments)
+                for idx, seg in enumerate(segments):
+                    # 使用带 Hook 的发送方法
+                    await self._send_chain_with_hooks(session_id, [Plain(text=seg)])
 
-            for idx, seg in enumerate(segments):
-                # 空内容检查 (参考 Splitter: strip检查)
-                if not seg.strip():
-                    logger.warning(f"[主动消息] 第 {idx+1}/{total_segments} 段内容清洗后为空，已跳过。")
-                    continue
-                
-                # 发送消息
-                try:
-                    await self.context.send_message(
-                        session_id, MessageChain([Plain(text=seg)])
-                    )
-                    sent_count += 1
-                    
-                    # 模拟打字延迟 (最后一段不延迟)
-                    if idx < total_segments - 1:
+                    # 如果不是最后一条消息，则等待一段时间
+                    if idx < len(segments) - 1:
                         interval = await self._calc_interval(seg, seg_conf)
                         logger.debug(f"[主动消息] 分段回复等待 {interval:.2f} 秒喵。")
                         await asyncio.sleep(interval)
-                        
-                except Exception as e:
-                    logger.error(f"[主动消息] 发送分段 {idx+1} 失败: {e}")
-
-            if sent_count == 0:
-                logger.warning("[主动消息] 所有分段均被过滤，未发送任何文本消息。")
+            else:
+                # 直接发送
+                # 使用带 Hook 的发送方法
+                await self._send_chain_with_hooks(session_id, [Plain(text=text)])
 
         # Bot 自己发送的消息，也应该被视为一次"活动"，重置群聊的沉默倒计时
         if "group" in session_id.lower():
@@ -2283,4 +2346,3 @@ def is_quiet_time(quiet_hours_str: str, tz: zoneinfo.ZoneInfo) -> bool:
     # 捕获可能发生的多种异常
     except (ValueError, TypeError):
         return False
-

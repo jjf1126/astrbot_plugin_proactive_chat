@@ -127,18 +127,6 @@
                         },
                         "hint": "检测到列表中的任意词时进行分段"
                     },
-                    "global_clean_regex": {
-                        "description": "🌐 分段前全局清洗正则",
-                        "type": "string",
-                        "default": "",
-                        "hint": "在分段前对全文进行清洗，支持跨行匹配。例如去除思考标签：<think>[\\s\\S]*?</think>"
-                    },
-                    "clean_regex": {
-                        "description": "🧹 内容清洗正则",
-                        "type": "string",
-                        "default": "",
-                        "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
-                    },
                     "interval_method": {
                         "description": "⏱️ 间隔计算方法",
                         "type": "string",
@@ -301,24 +289,6 @@
                             "split_mode": "words"
                         },
                         "hint": "检测到列表中的任意词时进行分段"
-                    },
-                    "global_clean_regex": {
-                        "description": "🌐 分段前全局清洗正则",
-                        "type": "string",
-                        "default": "",
-                        "hint": "在分段前对全文进行清洗，支持跨行匹配。例如去除思考标签：<think>[\\s\\S]*?</think>"
-                    },
-                    "global_clean_regex": {
-                        "description": "🌐 分段前全局清洗正则",
-                        "type": "string",
-                        "default": "",
-                        "hint": "在分段前对全文进行清洗，支持跨行匹配。例如去除思考标签：<think>[\\s\\S]*?</think>"
-                    },
-                    "clean_regex": {
-                        "description": "🧹 内容清洗正则",
-                        "type": "string",
-                        "default": "",
-                        "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
                     },
                     "interval_method": {
                         "description": "⏱️ 间隔计算方法",
@@ -487,18 +457,6 @@
                                 },
                                 "hint": "检测到列表中的任意词时进行分段"
                             },
-                            "global_clean_regex": {
-                                "description": "🌐 分段前全局清洗正则",
-                                "type": "string",
-                                "default": "",
-                                "hint": "在分段前对全文进行清洗，支持跨行匹配。例如去除思考标签：<think>[\\s\\S]*?</think>"
-                            },
-                            "clean_regex": {
-                                "description": "🧹 内容清洗正则",
-                                "type": "string",
-                                "default": "",
-                                "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
-                            },
                             "interval_method": {
                                 "description": "⏱️ 间隔计算方法",
                                 "type": "string",
@@ -661,18 +619,6 @@
                                     "split_mode": "words"
                                 },
                                 "hint": "检测到列表中的任意词时进行分段"
-                            },
-                            "global_clean_regex": {
-                                "description": "🌐 分段前全局清洗正则",
-                                "type": "string",
-                                "default": "",
-                                "hint": "在分段前对全文进行清洗，支持跨行匹配。例如去除思考标签：<think>[\\s\\S]*?</think>"
-                            },
-                            "clean_regex": {
-                                "description": "🧹 内容清洗正则",
-                                "type": "string",
-                                "default": "",
-                                "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
                             },
                             "interval_method": {
                                 "description": "⏱️ 间隔计算方法",
@@ -837,18 +783,6 @@
                                 },
                                 "hint": "检测到列表中的任意词时进行分段"
                             },
-                            "global_clean_regex": {
-                                "description": "🌐 分段前全局清洗正则",
-                                "type": "string",
-                                "default": "",
-                                "hint": "在分段前对全文进行清洗，支持跨行匹配。例如去除思考标签：<think>[\\s\\S]*?</think>"
-                            },
-                            "clean_regex": {
-                                "description": "🧹 内容清洗正则",
-                                "type": "string",
-                                "default": "",
-                                "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
-                            },
                             "interval_method": {
                                 "description": "⏱️ 间隔计算方法",
                                 "type": "string",
@@ -1012,18 +946,6 @@
                                 },
                                 "hint": "检测到列表中的任意词时进行分段"
                             },
-                            "global_clean_regex": {
-                                "description": "🌐 分段前全局清洗正则",
-                                "type": "string",
-                                "default": "",
-                                "hint": "在分段前对全文进行清洗，支持跨行匹配。例如去除思考标签：<think>[\\s\\S]*?</think>"
-                            },
-                            "clean_regex": {
-                                "description": "🧹 内容清洗正则",
-                                "type": "string",
-                                "default": "",
-                                "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
-                            },
                             "interval_method": {
                                 "description": "⏱️ 间隔计算方法",
                                 "type": "string",
@@ -1186,18 +1108,6 @@
                                     "split_mode": "words"
                                 },
                                 "hint": "检测到列表中的任意词时进行分段"
-                            },
-                            "global_clean_regex": {
-                                "description": "🌐 分段前全局清洗正则",
-                                "type": "string",
-                                "default": "",
-                                "hint": "在分段前对全文进行清洗，支持跨行匹配。例如去除思考标签：<think>[\\s\\S]*?</think>"
-                            },
-                            "clean_regex": {
-                                "description": "🧹 内容清洗正则",
-                                "type": "string",
-                                "default": "",
-                                "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
                             },
                             "interval_method": {
                                 "description": "⏱️ 间隔计算方法",
@@ -1374,18 +1284,6 @@
                                 },
                                 "hint": "检测到列表中的任意词时进行分段"
                             },
-                            "global_clean_regex": {
-                                "description": "🌐 分段前全局清洗正则",
-                                "type": "string",
-                                "default": "",
-                                "hint": "在分段前对全文进行清洗，支持跨行匹配。例如去除思考标签：<think>[\\s\\S]*?</think>"
-                            },
-                            "clean_regex": {
-                                "description": "🧹 内容清洗正则",
-                                "type": "string",
-                                "default": "",
-                                "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
-                            },
                             "interval_method": {
                                 "description": "⏱️ 间隔计算方法",
                                 "type": "string",
@@ -1554,18 +1452,6 @@
                                     "split_mode": "words"
                                 },
                                 "hint": "检测到列表中的任意词时进行分段"
-                            },
-                            "global_clean_regex": {
-                                "description": "🌐 分段前全局清洗正则",
-                                "type": "string",
-                                "default": "",
-                                "hint": "在分段前对全文进行清洗，支持跨行匹配。例如去除思考标签：<think>[\\s\\S]*?</think>"
-                            },
-                            "clean_regex": {
-                                "description": "🧹 内容清洗正则",
-                                "type": "string",
-                                "default": "",
-                                "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
                             },
                             "interval_method": {
                                 "description": "⏱️ 间隔计算方法",
@@ -1736,18 +1622,6 @@
                                 },
                                 "hint": "检测到列表中的任意词时进行分段"
                             },
-                            "global_clean_regex": {
-                                "description": "🌐 分段前全局清洗正则",
-                                "type": "string",
-                                "default": "",
-                                "hint": "在分段前对全文进行清洗，支持跨行匹配。例如去除思考标签：<think>[\\s\\S]*?</think>"
-                            },
-                            "clean_regex": {
-                                "description": "🧹 内容清洗正则",
-                                "type": "string",
-                                "default": "",
-                                "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
-                            },
                             "interval_method": {
                                 "description": "⏱️ 间隔计算方法",
                                 "type": "string",
@@ -1916,18 +1790,6 @@
                                     "split_mode": "words"
                                 },
                                 "hint": "检测到列表中的任意词时进行分段"
-                            },
-                            "global_clean_regex": {
-                                "description": "🌐 分段前全局清洗正则",
-                                "type": "string",
-                                "default": "",
-                                "hint": "在分段前对全文进行清洗，支持跨行匹配。例如去除思考标签：<think>[\\s\\S]*?</think>"
-                            },
-                            "clean_regex": {
-                                "description": "🧹 内容清洗正则",
-                                "type": "string",
-                                "default": "",
-                                "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
                             },
                             "interval_method": {
                                 "description": "⏱️ 间隔计算方法",
@@ -2098,18 +1960,6 @@
                                 },
                                 "hint": "检测到列表中的任意词时进行分段"
                             },
-                            "global_clean_regex": {
-                                "description": "🌐 分段前全局清洗正则",
-                                "type": "string",
-                                "default": "",
-                                "hint": "在分段前对全文进行清洗，支持跨行匹配。例如去除思考标签：<think>[\\s\\S]*?</think>"
-                            },
-                            "clean_regex": {
-                                "description": "🧹 内容清洗正则",
-                                "type": "string",
-                                "default": "",
-                                "hint": "发送前清洗内容（如去除心理描写）。若清洗后内容为空，该段将跳过发送。"
-                            },
                             "interval_method": {
                                 "description": "⏱️ 间隔计算方法",
                                 "type": "string",
@@ -2142,5 +1992,3 @@
         }
     }
 }
-
-
